@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { LOGIN_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -183,20 +184,24 @@ export default function LoginPage() {
     }
   };
 
+  const [videoSrc, setVideoSrc] = useState(() => LOGIN_VIDEOS[0]);
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(LOGIN_VIDEOS));
+  }, []);
+
   return (
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8">
       {/* 배경 영상 */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 bg-black">
         <video
           autoPlay
           muted
           loop
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
-          poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Crect fill='%234f46e5' width='1920' height='1080'/%3E%3C/svg%3E"
         >
           <source
-            src="https://videos.pexels.com/video-files/7646802/7646802-uhd_1440_2560_25fps.mp4"
+            src={videoSrc}
             type="video/mp4"
           />
         </video>

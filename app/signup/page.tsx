@@ -1,6 +1,7 @@
 "use client";
 
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
+import { pickRandomVideo, SIGNUP_VIDEOS } from "@/lib/backgroundVideos";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import AlertModal from "@/components/AlertModal";
@@ -66,21 +67,25 @@ export default function SignupPage() {
     }
   };
 
+  const [videoSrc, setVideoSrc] = useState(() => SIGNUP_VIDEOS[0]);
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(SIGNUP_VIDEOS));
+  }, []);
+
   return (
     <>
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8">
       {/* 배경 영상 */}
-      <div className="fixed inset-0 z-0">
+      <div className="fixed inset-0 z-0 bg-black">
         <video
           autoPlay
           muted
           loop
           playsInline
           className="absolute inset-0 h-full w-full object-cover"
-          poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Crect fill='%234f46e5' width='1920' height='1080'/%3E%3C/svg%3E"
         >
           <source
-            src="https://videos.pexels.com/video-files/8472439/8472439-uhd_1440_2732_25fps.mp4"
+            src={videoSrc}
             type="video/mp4"
           />
         </video>

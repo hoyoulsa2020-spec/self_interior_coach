@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
+import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
 import { supabase } from "@/lib/supabaseClient";
 import ProjectCreateModal from "@/components/ProjectCreateModal";
 
@@ -65,6 +66,10 @@ export default function DashboardPage() {
   // 진행중(active): 상단에 표시. 견적대기까지는 하단(기타)에 표시
   const activeProjects = projects.filter((p) => p.status === "active");
   const otherProjects = projects.filter((p) => p.status !== "active");
+  const [videoSrc, setVideoSrc] = useState(() => DASHBOARD_VIDEOS[0]);
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
+  }, []);
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
@@ -78,7 +83,7 @@ export default function DashboardPage() {
           className="absolute inset-0 h-full w-full object-cover"
         >
           <source
-            src="https://videos.pexels.com/video-files/6279706/6279706-uhd_2560_1440_24fps.mp4"
+            src={videoSrc}
             type="video/mp4"
           />
         </video>

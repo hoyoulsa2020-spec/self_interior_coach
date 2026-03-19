@@ -1,5 +1,8 @@
 import type { MetadataRoute } from "next";
 
+// 아이콘 변경 시 버전 올리기 → iOS/Android 홈화면 캐시 갱신
+const ICON_VERSION = "2";
+
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "셀인코치",
@@ -15,19 +18,25 @@ export default function manifest(): MetadataRoute.Manifest {
     categories: ["lifestyle", "business"],
     icons: [
       {
-        src: "/icon",
-        sizes: "32x32",
+        src: `/icon-192.png?v=${ICON_VERSION}`,
+        sizes: "192x192",
         type: "image/png",
         purpose: "any",
       },
       {
-        src: "/icon-192.png",
+        src: `/icon-192.png?v=${ICON_VERSION}`,
         sizes: "192x192",
         type: "image/png",
         purpose: "maskable",
       },
       {
-        src: "/icon-512.png",
+        src: `/icon-512.png?v=${ICON_VERSION}`,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `/icon-512.png?v=${ICON_VERSION}`,
         sizes: "512x512",
         type: "image/png",
         purpose: "maskable",

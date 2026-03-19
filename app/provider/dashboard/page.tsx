@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend,
@@ -94,6 +95,10 @@ export default function ProviderDashboardPage() {
   const initializedRef = useRef(false);
   const categoriesRef = useRef<string[]>([]);
   const animatedTotalSales = useAnimatedValue(totalSales, 1200, [totalSales]);
+  const [videoSrc, setVideoSrc] = useState(() => DASHBOARD_VIDEOS[0]);
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
+  }, []);
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -419,11 +424,26 @@ export default function ProviderDashboardPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="relative min-h-[calc(100vh-3.5rem)]">
+      {/* 배경 영상 */}
+      <div className="fixed inset-0 top-14 left-0 z-0 bg-black lg:left-60">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source src={videoSrc} type="video/mp4" />
+        </video>
+        <div className="absolute inset-0 bg-black/40" aria-hidden />
+      </div>
+
+      <div className="relative z-10 space-y-6">
       {/* 헤더 */}
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">안녕하세요, {businessName}님 👋</h1>
-        <p className="mt-0.5 text-sm text-gray-500">업체 대시보드에 오신 것을 환영합니다.</p>
+        <h1 className="text-xl font-semibold text-white drop-shadow-md">안녕하세요, {businessName}님 👋</h1>
+        <p className="mt-0.5 text-sm text-white/90">업체 대시보드에 오신 것을 환영합니다.</p>
       </div>
 
       {/* 요약 카드 */}
@@ -606,6 +626,7 @@ export default function ProviderDashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
+      </div>
       </div>
     </div>
   );

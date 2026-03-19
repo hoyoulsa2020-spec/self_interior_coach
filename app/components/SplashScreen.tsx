@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { pickRandomVideo, SPLASH_VIDEOS } from "@/lib/backgroundVideos";
 
 const SPLASH_DURATION_MS = 5000;
 const FADE_OUT_MS = 500;
@@ -30,6 +31,11 @@ async function getRedirectPath(): Promise<string> {
 
 export default function SplashScreen() {
   const [phase, setPhase] = useState<"show" | "fadeout">("show");
+  const [videoSrc, setVideoSrc] = useState(() => SPLASH_VIDEOS[0]);
+
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
+  }, []);
 
   useEffect(() => {
     const t1 = setTimeout(() => setPhase("fadeout"), SPLASH_DURATION_MS);
@@ -52,7 +58,7 @@ export default function SplashScreen() {
       }`}
     >
       {/* 배경 영상 (약 3초) */}
-      <div className="absolute inset-0">
+      <div className="absolute inset-0 bg-black">
         <video
           autoPlay
           muted
@@ -61,7 +67,7 @@ export default function SplashScreen() {
           className="absolute inset-0 h-full w-full object-cover"
         >
           <source
-            src="https://videos.pexels.com/video-files/8960784/8960784-hd_1920_1080_25fps.mp4"
+            src={videoSrc}
             type="video/mp4"
           />
         </video>

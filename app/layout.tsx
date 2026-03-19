@@ -21,10 +21,12 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
+const ICON_VERSION = "2";
+
 export const metadata: Metadata = {
   title: "셀인코치",
   description: "셀인코치 - 인테리어 시공 매칭 플랫폼",
-  icons: { icon: "/icon" },
+  icons: { icon: `/icon-192.png?v=${ICON_VERSION}` },
   appleWebApp: {
     capable: true,
     title: "셀코",
