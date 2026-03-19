@@ -510,11 +510,11 @@ export default function ProviderDashboardPage() {
                 ) : categoryStats.length > 0 ? (
                   <div className="h-64 min-h-[200px] w-full">
                     <ResponsiveContainer width="100%" height="100%">
-                      <LineChart data={combinedData.length > 0 ? combinedData : [{ date: "-" }]} margin={{ top: 12, right: 12, left: 0, bottom: 4 }}>
+                      <LineChart data={combinedData.length > 0 ? combinedData : ([{ date: "-" }] as Record<string, string | number>[])} margin={{ top: 12, right: 12, left: 0, bottom: 4 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" vertical={false} />
                         <XAxis dataKey="date" tick={{ fontSize: 11, fill: "#6b7280" }} axisLine={{ stroke: "#e5e7eb" }} tickLine={false} />
                         <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} width={28} />
-                        <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} formatter={(v: unknown, name: string) => [`${Number(v)}건`, name]} />
+                        <Tooltip contentStyle={{ borderRadius: 12, border: "1px solid #e5e7eb", fontSize: 12 }} formatter={(v: unknown, name: unknown) => [`${Number(v)}건`, String(name ?? "")]} />
                         <Legend iconType="circle" iconSize={8} wrapperStyle={{ fontSize: 11, paddingTop: 8 }} />
                         {categoryStats.map((stat, i) => (
                           <Line key={stat.name} type="monotone" dataKey={stat.name} stroke={BAR_COLORS[i % BAR_COLORS.length]}

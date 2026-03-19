@@ -200,11 +200,11 @@ export default function EstimateLabPage() {
                             <div key={cat} className="flex items-center gap-2">
                               <span className="text-xs font-medium text-indigo-600">{cat}</span>
                               <span className="text-xs text-gray-700">{formatAmount(val)}</span>
-                              {row.process_schedule?.[cat as keyof typeof row.process_schedule] && (
+                              {row.process_schedule?.[cat as keyof typeof row.process_schedule] != null ? (
                                 <span className="text-[10px] text-gray-400">
                                   {formatScheduleRange(row.process_schedule, cat)}
                                 </span>
-                              )}
+                              ) : null}
                             </div>
                           ))}
                         </div>

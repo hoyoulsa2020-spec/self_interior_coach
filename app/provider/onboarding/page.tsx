@@ -3,16 +3,6 @@
 import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-declare global {
-  interface Window {
-    daum: {
-      Postcode: new (options: {
-        oncomplete: (data: { roadAddress: string; jibunAddress: string }) => void;
-      }) => { open: () => void };
-    };
-  }
-}
-
 const WORK_ZONES = [
   "전국",
   "서울 전체",
@@ -112,9 +102,11 @@ export default function ProviderOnboardingPage() {
   const openAddressSearch = () => {
     const script = document.getElementById("daum-postcode");
     const launch = () => {
-      new window.daum.Postcode({
+      const daum = window.daum;
+      if (!daum?.Postcode) return;
+      new daum.Postcode({
         oncomplete: (data) => {
-          setAddress1(data.roadAddress || data.jibunAddress);
+          setAddress1(data.roadAddress || data.jibunAddress || "");
           setAddress2("");
         },
       }).open();

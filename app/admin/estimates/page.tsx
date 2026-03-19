@@ -17,6 +17,14 @@ type EstimateReview = {
   profiles?: { name: string; email: string; phone: string } | null;
 };
 
+function normalizeReview(row: Record<string, unknown>): EstimateReview {
+  const profiles = row.profiles;
+  const profileObj = Array.isArray(profiles) && profiles.length > 0
+    ? (profiles[0] as { name: string; email: string; phone: string })
+    : (profiles as { name: string; email: string; phone: string } | null) ?? null;
+  return { ...row, profiles: profileObj } as EstimateReview;
+}
+
 const PAGE_SIZE = 20;
 
 function Lightbox({ urls, index, onClose }: { urls: string[]; index: number; onClose: () => void }) {
@@ -121,7 +129,7 @@ export default function AdminEstimatesPage() {
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data, count, error } = await query;
     if (error) console.error("견적서 검토 조회 오류:", error.message, error.details, error.hint);
-    setReviews((data as EstimateReview[]) ?? []);
+    setReviews((data ?? []).map(normalizeReview));
     setTotalCount(count ?? 0);
     setIsLoading(false);
   }, [currentPage, appliedSearch, statusFilter]);

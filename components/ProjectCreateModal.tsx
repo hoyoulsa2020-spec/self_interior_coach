@@ -52,14 +52,6 @@ type Props = {
   initialData?: ProjectForEdit | null;
 };
 
-declare global {
-  interface Window {
-    daum: {
-      Postcode: new (options: { oncomplete: (data: { address: string }) => void }) => { open: () => void };
-    };
-  }
-}
-
 export default function ProjectCreateModal({ userId, userProfile, onClose, onCreated, initialData }: Props) {
   const isEdit = !!initialData;
   const [categoriesData, setCategoriesData] = useState<CategoryWithProcesses[]>([]);
@@ -228,7 +220,11 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   };
 
   const openPostcode = () => {
-    const run = () => new window.daum.Postcode({ oncomplete: (d) => setFormAddress1(d.address) }).open();
+    const run = () => {
+      const daum = window.daum;
+      if (!daum?.Postcode) return;
+      new daum.Postcode({ oncomplete: (d) => setFormAddress1(d.address ?? "") }).open();
+    };
     if (window.daum?.Postcode) { run(); return; }
     if (!document.getElementById("daum-postcode-script")) {
       const s = document.createElement("script");
@@ -277,7 +273,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
     setIsSubmitting(true);
 
     // 대공정별 이미지 업로드
-    const workDetailsResult: Record<string, { requirements: string; image_urls: string[] }> = {};
+    const workDetailsResult: Record<string, { requirements: string; image_urls: string[]; subs?: string[] }> = {};
     const topCatNames = [...new Set(workItems.map((w) => w.categoryName))];
 
     for (let ci = 0; ci < topCatNames.length; ci++) {

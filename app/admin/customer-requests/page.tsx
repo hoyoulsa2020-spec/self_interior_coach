@@ -13,7 +13,7 @@ type Inquiry = {
   answer: string | null;
   answered_at: string | null;
   created_at: string;
-  profiles?: { name: string; email: string; phone: string } | null;
+  profiles?: { name: string | null; email: string | null; phone: string | null }[];
 };
 
 const PAGE_SIZE = 20;
@@ -108,7 +108,7 @@ export default function CustomerRequestsPage() {
     if (error) {
       console.error("문의 조회 오류:", error.message, error.details, error.hint);
     }
-    setInquiries((data as Inquiry[]) ?? []);
+    setInquiries((data ?? []) as Inquiry[]);
     setTotalCount(count ?? 0);
     setIsLoading(false);
   }, [currentPage, appliedSearch, statusFilter]);
@@ -237,7 +237,7 @@ export default function CustomerRequestsPage() {
                       </div>
                     </td>
                     <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">
-                      {inq.profiles?.name || "—"}
+                      {inq.profiles?.[0]?.name || "—"}
                     </td>
                     <td className="hidden px-4 py-3 text-gray-400 md:table-cell">
                       {new Date(inq.created_at).toLocaleDateString("ko-KR")}
@@ -307,7 +307,7 @@ export default function CustomerRequestsPage() {
                   <h3 className="text-sm font-semibold text-gray-800">{detail.title}</h3>
                 </div>
                 <p className="mt-0.5 text-xs text-gray-400">
-                  {detail.profiles?.name} · {new Date(detail.created_at).toLocaleString("ko-KR")}
+                  {detail.profiles?.[0]?.name} · {new Date(detail.created_at).toLocaleString("ko-KR")}
                 </p>
               </div>
               <button type="button" onClick={() => setDetail(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">

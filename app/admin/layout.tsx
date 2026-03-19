@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
 function parseArray(value: unknown): string[] {
@@ -125,7 +125,7 @@ const NAV_ITEMS: NavItem[] = [
 
 const SIDEBAR_W = "w-60";
 
-export default function AdminLayout({ children }: { children: React.ReactNode }) {
+function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [projectOpen, setProjectOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
@@ -437,5 +437,13 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
+  );
+}
+
+export default function AdminLayout({ children }: { children: React.ReactNode }) {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50" />}>
+      <AdminLayoutInner>{children}</AdminLayoutInner>
+    </Suspense>
   );
 }

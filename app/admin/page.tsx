@@ -508,7 +508,7 @@ export default function AdminDashboardPage() {
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
-                formatter={(value: number) => [`${value}건`]}
+                formatter={(value: unknown) => [`${value != null ? value : 0}건`]}
               />
               <Legend
                 iconType="circle"
@@ -546,7 +546,7 @@ export default function AdminDashboardPage() {
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
-                formatter={(value: number, name: string) => [`${value}명`, name === "consumer" ? "개인고객" : "공급업체"]}
+                formatter={(value: unknown, name: unknown) => [`${value != null ? value : 0}명`, name === "consumer" ? "개인고객" : "공급업체"]}
               />
               <Line type="monotone" dataKey="consumer" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
               <Line type="monotone" dataKey="provider" stroke="#8b5cf6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />

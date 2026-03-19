@@ -3,16 +3,6 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-declare global {
-  interface Window {
-    daum: {
-      Postcode: new (options: {
-        oncomplete: (data: { roadAddress: string; jibunAddress: string }) => void;
-      }) => { open: () => void };
-    };
-  }
-}
-
 type Profile = {
   user_id: string;
   name: string;
@@ -90,6 +80,7 @@ export default function ProviderProfilePage() {
   const [form, setForm] = useState<EditForm>({
     business_name: "", owner_name: "", phone: "",
     address1: "", address2: "", category: [], work_zone: [], introduction: "",
+    warranty_period: "",
   });
 
   // 사업자등록증 업로드
@@ -152,7 +143,7 @@ export default function ProviderProfilePage() {
     if (!window.daum?.Postcode) return;
     new window.daum.Postcode({
       oncomplete: (data) => {
-        setForm((f) => ({ ...f, address1: data.roadAddress || data.jibunAddress, address2: "" }));
+        setForm((f) => ({ ...f, address1: data.roadAddress || data.jibunAddress || "", address2: "" }));
       },
     }).open();
   };
