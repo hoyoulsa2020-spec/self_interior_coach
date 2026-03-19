@@ -219,14 +219,16 @@ export default function AdminPushPage() {
             </p>
           )}
 
-          <button
-            type="button"
-            onClick={handleSend}
-            disabled={isSending}
-            className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
-          >
-            {isSending ? "발송 중..." : "발송하기"}
-          </button>
+          <div className="flex justify-center">
+            <button
+              type="button"
+              onClick={handleSend}
+              disabled={isSending}
+              className="rounded-xl bg-indigo-600 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+            >
+              {isSending ? "발송 중..." : "발송하기"}
+            </button>
+          </div>
         </div>
       </div>
     </div>
