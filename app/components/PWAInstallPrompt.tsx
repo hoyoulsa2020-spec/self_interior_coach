@@ -4,20 +4,68 @@ import { useEffect, useState } from "react";
 
 const STORAGE_KEY = "pwa_install_dismissed";
 
+declare global {
+  interface WindowEventMap {
+    beforeinstallprompt: BeforeInstallPromptEvent;
+  }
+}
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>;
+  userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
+}
+
 export default function PWAInstallPrompt() {
   const [show, setShow] = useState(false);
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null);
+  const [platform, setPlatform] = useState<"ios" | "android" | null>(null);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
-    const isStandalone = window.matchMedia("(display-mode: standalone)").matches || (window.navigator as { standalone?: boolean }).standalone;
+    // iOS: iPhone/iPad/iPod. iPadOS 13+ reports MacIntel + maxTouchPoints. standalone은 iOS Safari에만 존재
+    const ios =
+      /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      /iPad|iPhone|iPod/.test(navigator.platform || "") ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1) ||
+      (navigator.platform === "MacIntel" && "standalone" in navigator);
+
+    const android = /Android/.test(navigator.userAgent);
+    const standalone =
+      window.matchMedia("(display-mode: standalone)").matches ||
+      window.matchMedia("(display-mode: minimal-ui)").matches ||
+      (window.navigator as { standalone?: boolean }).standalone === true;
     const dismissed = sessionStorage.getItem(STORAGE_KEY);
 
-    if (isIOS && !isStandalone && !dismissed) {
+    if (standalone || dismissed) return;
+
+    const handler = (e: BeforeInstallPromptEvent) => {
+      e.preventDefault();
+      setDeferredPrompt(e);
+      setPlatform("android");
+      setShow(true);
+    };
+
+    if (android) {
+      window.addEventListener("beforeinstallprompt", handler);
+      setPlatform("android");
+      setShow(true);
+      return () => window.removeEventListener("beforeinstallprompt", handler);
+    }
+
+    if (ios) {
+      setPlatform("ios");
       setShow(true);
     }
   }, []);
+
+  const handleInstall = async () => {
+    if (deferredPrompt) {
+      await deferredPrompt.prompt();
+      const { outcome } = await deferredPrompt.userChoice;
+      if (outcome === "accepted") setShow(false);
+    }
+  };
 
   const handleDismiss = () => {
     sessionStorage.setItem(STORAGE_KEY, "1");
@@ -35,10 +83,25 @@ export default function PWAInstallPrompt() {
           </svg>
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-800">홈 화면에 추가</p>
-          <p className="mt-0.5 text-xs text-gray-500">
-            하단 공유 버튼 → &quot;홈 화면에 추가&quot;를 누르면 앱처럼 사용할 수 있습니다.
+          <p className="text-sm font-medium text-gray-800">
+            {deferredPrompt ? "앱 설치" : platform === "ios" ? "홈 화면에 추가" : "앱으로 사용하기"}
           </p>
+          <p className="mt-0.5 text-xs text-gray-500">
+            {deferredPrompt
+              ? "설치하면 홈 화면에서 앱처럼 실행됩니다."
+              : platform === "ios"
+                ? "하단 공유 버튼 → 홈 화면에 추가"
+                : "메뉴(⋮) → 앱 설치 또는 홈 화면에 추가"}
+          </p>
+          {deferredPrompt && (
+            <button
+              type="button"
+              onClick={handleInstall}
+              className="mt-2 w-full rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >
+              설치하기
+            </button>
+          )}
         </div>
         <button
           type="button"

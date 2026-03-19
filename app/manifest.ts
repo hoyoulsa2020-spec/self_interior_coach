@@ -6,9 +6,13 @@ export default function manifest(): MetadataRoute.Manifest {
     short_name: "셀코",
     description: "인테리어 시공 매칭 플랫폼",
     start_url: "/",
+    scope: "/",
     display: "standalone",
+    display_override: ["standalone", "minimal-ui", "browser"],
+    orientation: "portrait-primary",
     background_color: "#ffffff",
     theme_color: "#4f46e5",
+    categories: ["lifestyle", "business"],
     icons: [
       {
         src: "/icon",
