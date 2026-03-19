@@ -67,14 +67,32 @@ export default function DashboardPage() {
   const otherProjects = projects.filter((p) => p.status !== "active");
 
   return (
-    <div className="space-y-6">
+    <div className="relative min-h-[calc(100vh-3.5rem)]">
+      {/* 배경 영상 (대시보드 메인만) */}
+      <div className="fixed inset-0 top-14 left-0 z-0 lg:left-60">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source
+            src="https://videos.pexels.com/video-files/6279706/6279706-uhd_2560_1440_24fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="absolute inset-0 bg-black/40" aria-hidden />
+      </div>
+
+      <div className="relative z-10 space-y-6">
       {/* 인사말 */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-xl font-semibold text-gray-800">
+          <h1 className="text-xl font-semibold text-white drop-shadow-md">
             {userName ? `${userName}님, 안녕하세요 👋` : "대시보드"}
           </h1>
-          <p className="mt-0.5 text-sm text-gray-500">현재 진행 중인 프로젝트를 확인하세요.</p>
+          <p className="mt-0.5 text-sm text-white/90">현재 진행 중인 프로젝트를 확인하세요.</p>
         </div>
         <button type="button" onClick={() => setShowModal(true)}
           className="flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-indigo-700 active:scale-95">
@@ -89,8 +107,11 @@ export default function DashboardPage() {
       {/* 진행중 프로젝트 */}
       <section>
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-gray-700">진행중인 프로젝트</h2>
-          <Link href="/dashboard/projects" className="text-xs text-indigo-600 hover:underline">전체 보기 →</Link>
+          <h2 className="text-sm font-semibold text-white/95">진행중인 프로젝트</h2>
+          <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-white/80">
+            <span>전체 보기</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </Link>
         </div>
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -125,8 +146,11 @@ export default function DashboardPage() {
       {!isLoading && otherProjects.length > 0 && (
         <section>
           <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-gray-700">대기중·견적대기 프로젝트</h2>
-            <Link href="/dashboard/projects" className="text-xs text-indigo-600 hover:underline">전체 보기 →</Link>
+            <h2 className="text-sm font-semibold text-white/95">대기중·견적대기 프로젝트</h2>
+            <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-white/80">
+            <span>전체 보기</span>
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+          </Link>
           </div>
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {otherProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
@@ -142,6 +166,7 @@ export default function DashboardPage() {
           onCreated={() => fetchProjects(userId)}
         />
       )}
+      </div>
     </div>
   );
 }

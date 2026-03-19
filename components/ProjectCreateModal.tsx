@@ -637,8 +637,9 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 relative">
-      <div className="flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-xl" style={{ maxHeight: "92vh" }}>
+    <div className="fixed inset-0 z-50 overflow-y-auto bg-transparent px-4 py-4 sm:py-8">
+      <div className="flex min-h-[100dvh] items-center justify-center">
+        <div className="relative flex w-full max-w-xl flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "92vh" }}>
         {/* 헤더 */}
         <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
           <div>
@@ -917,6 +918,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
           </div>
         </div>
       )}
+      </div>
     </div>
   );
 }
