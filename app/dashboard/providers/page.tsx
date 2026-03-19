@@ -50,17 +50,6 @@ function PhoneLink({ phone }: { phone: string | null }) {
         </svg>
         {phone}
       </a>
-      <a
-        href={`kakaotalk://msg/send?to=${digits}`}
-        className="sm:hidden inline-flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition"
-        style={{ backgroundColor: "#FEE500", color: "#3A1D1D" }}
-        title="카카오톡으로 메시지 보내기"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.477 2 2 5.805 2 10.5c0 2.91 1.69 5.484 4.28 7.084L5.25 21l4.2-2.1C10.268 19.29 11.12 19.5 12 19.5c5.523 0 10-3.805 10-8.5S17.523 2 12 2z" />
-        </svg>
-        카카오
-      </a>
     </span>
   );
 }

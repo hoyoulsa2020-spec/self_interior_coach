@@ -793,7 +793,6 @@ function PhoneActions({ phone }: { phone: string }) {
   const digits = phone.replace(/\D/g, "");
   return (
     <div className="flex items-center gap-2">
-      {/* 전화 걸기 */}
       <a
         href={`tel:${digits}`}
         className="flex items-center gap-1 rounded-lg bg-gray-100 px-2.5 py-1 text-xs font-medium text-gray-700 transition hover:bg-gray-200"
@@ -802,19 +801,6 @@ function PhoneActions({ phone }: { phone: string }) {
           <path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07A19.5 19.5 0 0 1 4.69 12a19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 3.6 1.27h3a2 2 0 0 1 2 1.72c.127.96.361 1.903.7 2.81a2 2 0 0 1-.45 2.11L7.91 8.91a16 16 0 0 0 6.29 6.29l.91-.91a2 2 0 0 1 2.11-.45c.907.339 1.85.573 2.81.7A2 2 0 0 1 22 16.92z" />
         </svg>
         {phone}
-      </a>
-
-      {/* 카카오톡 메시지 — 모바일 전용 */}
-      <a
-        href={`kakaotalk://msg/send?to=${digits}`}
-        className="sm:hidden flex items-center gap-1 rounded-lg px-2.5 py-1 text-xs font-medium transition"
-        style={{ backgroundColor: "#FEE500", color: "#3A1D1D" }}
-        title="카카오톡으로 메시지 보내기"
-      >
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor">
-          <path d="M12 2C6.477 2 2 5.805 2 10.5c0 2.91 1.69 5.484 4.28 7.084L5.25 21l4.2-2.1C10.268 19.29 11.12 19.5 12 19.5c5.523 0 10-3.805 10-8.5S17.523 2 12 2z" />
-        </svg>
-        카카오
       </a>
     </div>
   );
