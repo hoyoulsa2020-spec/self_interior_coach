@@ -66,7 +66,7 @@ export default function DashboardPage() {
   // 진행중(active): 상단에 표시. 견적대기까지는 하단(기타)에 표시
   const activeProjects = projects.filter((p) => p.status === "active");
   const otherProjects = projects.filter((p) => p.status !== "active");
-  const [videoSrc, setVideoSrc] = useState(() => DASHBOARD_VIDEOS[0]);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   useEffect(() => {
     setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
   }, []);
@@ -75,7 +75,9 @@ export default function DashboardPage() {
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       {/* 배경 영상 (대시보드 메인만) */}
       <div className="fixed inset-0 top-14 left-0 z-0 lg:left-60">
+        {videoSrc && (
         <video
+          key={videoSrc}
           autoPlay
           muted
           loop
@@ -87,6 +89,7 @@ export default function DashboardPage() {
             type="video/mp4"
           />
         </video>
+        )}
         <div className="absolute inset-0 bg-black/40" aria-hidden />
       </div>
 

@@ -95,7 +95,7 @@ export default function ProviderDashboardPage() {
   const initializedRef = useRef(false);
   const categoriesRef = useRef<string[]>([]);
   const animatedTotalSales = useAnimatedValue(totalSales, 1200, [totalSales]);
-  const [videoSrc, setVideoSrc] = useState(() => DASHBOARD_VIDEOS[0]);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   useEffect(() => {
     setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
   }, []);
@@ -427,7 +427,9 @@ export default function ProviderDashboardPage() {
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       {/* 배경 영상 */}
       <div className="fixed inset-0 top-14 left-0 z-0 bg-black lg:left-60">
+        {videoSrc && (
         <video
+          key={videoSrc}
           autoPlay
           muted
           loop
@@ -436,6 +438,7 @@ export default function ProviderDashboardPage() {
         >
           <source src={videoSrc} type="video/mp4" />
         </video>
+        )}
         <div className="absolute inset-0 bg-black/40" aria-hidden />
       </div>
 

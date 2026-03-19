@@ -184,7 +184,7 @@ export default function LoginPage() {
     }
   };
 
-  const [videoSrc, setVideoSrc] = useState(() => LOGIN_VIDEOS[0]);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   useEffect(() => {
     setVideoSrc(pickRandomVideo(LOGIN_VIDEOS));
   }, []);
@@ -193,7 +193,9 @@ export default function LoginPage() {
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8">
       {/* 배경 영상 */}
       <div className="fixed inset-0 z-0 bg-black">
+        {videoSrc && (
         <video
+          key={videoSrc}
           autoPlay
           muted
           loop
@@ -205,6 +207,7 @@ export default function LoginPage() {
             type="video/mp4"
           />
         </video>
+        )}
         <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" aria-hidden />
       </div>
 

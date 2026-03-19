@@ -31,7 +31,7 @@ async function getRedirectPath(): Promise<string> {
 
 export default function SplashScreen() {
   const [phase, setPhase] = useState<"show" | "fadeout">("show");
-  const [videoSrc, setVideoSrc] = useState(() => SPLASH_VIDEOS[0]);
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
 
   useEffect(() => {
     setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
@@ -59,7 +59,9 @@ export default function SplashScreen() {
     >
       {/* 배경 영상 (약 3초) */}
       <div className="absolute inset-0 bg-black">
+        {videoSrc && (
         <video
+          key={videoSrc}
           autoPlay
           muted
           loop
@@ -71,6 +73,7 @@ export default function SplashScreen() {
             type="video/mp4"
           />
         </video>
+        )}
         <div className="absolute inset-0 bg-black/30" aria-hidden />
       </div>
 
