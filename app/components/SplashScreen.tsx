@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
 const SPLASH_DURATION_MS = 4000;
@@ -30,7 +29,6 @@ async function getRedirectPath(): Promise<string> {
 }
 
 export default function SplashScreen() {
-  const router = useRouter();
   const [phase, setPhase] = useState<"show" | "fadeout">("show");
 
   useEffect(() => {
@@ -38,14 +36,14 @@ export default function SplashScreen() {
 
     const t2 = setTimeout(async () => {
       const path = await getRedirectPath();
-      router.replace(path);
+      window.location.href = path;
     }, SPLASH_DURATION_MS + FADE_OUT_MS);
 
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
     };
-  }, [router]);
+  }, []);
 
   return (
     <div

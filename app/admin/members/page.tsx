@@ -166,7 +166,6 @@ export default function MembersPage() {
     setTogglingId(null);
   };
 
-  // TODO: 관리자 계정 대리 로그인 기능 필요
   const handleEmailClick = (userId: string) => {
     window.open(`/admin/impersonate?userId=${userId}`, "_blank");
   };
