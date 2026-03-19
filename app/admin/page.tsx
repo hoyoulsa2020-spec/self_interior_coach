@@ -193,9 +193,10 @@ export default function AdminDashboardPage() {
       since.setDate(since.getDate() - (days - 1));
       since.setHours(0, 0, 0, 0);
 
-      const [projectPeriodRes, providerBidRes, projectAllRes] = await Promise.all([
+      const [projectPeriodRes, estimatesCountRes, assignmentsCompletedRes, projectAllRes] = await Promise.all([
         supabase.from("projects").select("created_at").gte("created_at", since.toISOString()),
-        supabase.from("profiles").select("bid_count, match_count").eq("role", "provider"),
+        supabase.from("project_estimates").select("id", { count: "exact", head: true }),
+        supabase.from("project_category_assignments").select("id", { count: "exact", head: true }).eq("match_status", "completed"),
         supabase.from("projects").select("id", { count: "exact", head: true }),
       ]);
 
@@ -215,9 +216,10 @@ export default function AdminDashboardPage() {
         if (target) target.projects += 1;
       });
 
-      // 업체 입찰 합산 (총 누적)
-      const totalBids = (providerBidRes.data ?? []).reduce((s, r) => s + (r.bid_count ?? 0), 0);
-      const totalMatches = (providerBidRes.data ?? []).reduce((s, r) => s + (r.match_count ?? 0), 0);
+      // 총 업체 입찰: project_estimates 전체 건수 (견적 제시한 업체)
+      // 매칭 성공: project_category_assignments 중 match_status='completed' (계약완료)
+      const totalBids = estimatesCountRes.count ?? 0;
+      const totalMatches = assignmentsCompletedRes.count ?? 0;
 
       setActivityData(dayList);
       setActivitySummary({
@@ -505,8 +507,8 @@ export default function AdminDashboardPage() {
         <div className="mb-5 grid grid-cols-3 gap-3">
           {[
             { label: "총 프로젝트 요청", value: activitySummary?.totalProjects, color: "text-indigo-600", sub: "누적 전체" },
-            { label: "총 업체 입찰", value: activitySummary?.totalBids, color: "text-violet-600", sub: "전체 업체 누적" },
-            { label: "매칭 성공", value: activitySummary?.totalMatches, color: "text-emerald-600", sub: "전체 업체 누적" },
+            { label: "총 업체 입찰", value: activitySummary?.totalBids, color: "text-violet-600", sub: "견적 제시한 업체" },
+            { label: "매칭 성공", value: activitySummary?.totalMatches, color: "text-emerald-600", sub: "계약완료" },
           ].map((item) => (
             <div key={item.label} className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3">
               <p className="text-xs text-gray-400">{item.label}</p>
