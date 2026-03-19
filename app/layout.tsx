@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import GoogleAnalytics from "./components/GoogleAnalytics";
+import PWAInstallPrompt from "./components/PWAInstallPrompt";
 
 export const viewport: Viewport = {
   width: "device-width",
@@ -43,6 +44,7 @@ export default function RootLayout({
       >
         <GoogleAnalytics />
         {children}
+        <PWAInstallPrompt />
       </body>
     </html>
   );
