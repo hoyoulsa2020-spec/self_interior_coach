@@ -24,6 +24,11 @@ export const metadata: Metadata = {
   title: "셀인코치",
   description: "셀인코치 - 인테리어 시공 매칭 플랫폼",
   icons: { icon: "/icon" },
+  appleWebApp: {
+    capable: true,
+    title: "셀코",
+    statusBarStyle: "default",
+  },
 };
 
 export default function RootLayout({
