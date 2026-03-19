@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 
-const SPLASH_DURATION_MS = 4000;
+const SPLASH_DURATION_MS = 5000;
 const FADE_OUT_MS = 500;
 
 async function getRedirectPath(): Promise<string> {
@@ -47,15 +47,25 @@ export default function SplashScreen() {
 
   return (
     <div
-      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-gradient-to-br from-indigo-600 via-indigo-700 to-indigo-900 transition-opacity duration-500 ${
+      className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden transition-opacity duration-500 ${
         phase === "fadeout" ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* 배경 장식 */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -left-20 -top-20 h-64 w-64 rounded-full bg-white/10 blur-3xl animate-pulse" />
-        <div className="absolute -bottom-20 -right-20 h-80 w-80 rounded-full bg-indigo-400/20 blur-3xl animate-pulse" style={{ animationDelay: "0.5s" }} />
-        <div className="absolute left-1/2 top-1/2 h-40 w-40 -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/5 blur-2xl" />
+      {/* 배경 영상 (약 3초) */}
+      <div className="absolute inset-0">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+        >
+          <source
+            src="https://videos.pexels.com/video-files/8960784/8960784-hd_1920_1080_25fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="absolute inset-0 bg-black/30" aria-hidden />
       </div>
 
       {/* 로고 + 텍스트 */}
@@ -105,7 +115,7 @@ export default function SplashScreen() {
             animation: "splash-fade-up 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) 0.3s forwards",
           }}
         >
-          <p className="text-sm font-medium text-white/90 tracking-widest">Self Interior Coach</p>
+          <p className="text-base font-semibold text-white drop-shadow-md tracking-wide">셀프 인테리어 코치</p>
         </div>
 
         {/* 로딩 인디케이터 */}
@@ -115,7 +125,7 @@ export default function SplashScreen() {
         >
           <div
             className="h-full w-full rounded-full bg-white"
-            style={{ animation: "splash-progress 2s ease-in-out forwards" }}
+            style={{ animation: "splash-progress 4s ease-in-out forwards" }}
           />
         </div>
       </div>

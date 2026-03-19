@@ -184,13 +184,31 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="min-h-screen bg-background flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md">
+    <main className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8">
+      {/* 배경 영상 */}
+      <div className="fixed inset-0 z-0">
+        <video
+          autoPlay
+          muted
+          loop
+          playsInline
+          className="absolute inset-0 h-full w-full object-cover"
+          poster="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1920 1080'%3E%3Crect fill='%234f46e5' width='1920' height='1080'/%3E%3C/svg%3E"
+        >
+          <source
+            src="https://videos.pexels.com/video-files/7646802/7646802-uhd_1440_2560_25fps.mp4"
+            type="video/mp4"
+          />
+        </video>
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" aria-hidden />
+      </div>
+
+      <div className="relative z-10 w-full max-w-md">
         <header className="mb-8 text-center">
-          <h1 className="text-2xl font-semibold tracking-tight text-foreground">
+          <h1 className="text-2xl font-semibold tracking-tight text-white drop-shadow-md">
             로그인
           </h1>
-          <p className="mt-2 text-sm text-foreground/70">
+          <p className="mt-2 text-sm text-white/90">
             셀인코치 서비스에 오신걸 환영합니다.
           </p>
         </header>
@@ -280,9 +298,9 @@ export default function LoginPage() {
           </form>
         </div>
 
-        <p className="mt-4 text-center text-xs text-foreground/60">
+        <p className="mt-4 text-center text-xs text-white/80">
           계정이 없으신가요?{" "}
-          <a href="/signup" className="font-medium text-indigo-600 hover:underline">
+          <a href="/signup" className="font-medium text-indigo-200 hover:text-white hover:underline">
             회원가입하기
           </a>
         </p>
