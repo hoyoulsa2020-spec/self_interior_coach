@@ -110,14 +110,17 @@ function toArray(value: unknown): string[] {
 
 export default function ProviderLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const skipNextWriteRef = useRef(true);
+
+  useEffect(() => {
     try {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved !== null) setSidebarCollapsed(saved === "1");
     } catch {
-      return false;
+      /* ignore */
     }
-  });
+  }, []);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [estimatesExpanded, setEstimatesExpanded] = useState(false);
   const [businessName, setBusinessName] = useState<string>("");
@@ -139,6 +142,10 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   }, [pathname]);
 
   useEffect(() => {
+    if (skipNextWriteRef.current) {
+      skipNextWriteRef.current = false;
+      return;
+    }
     try {
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
     } catch {

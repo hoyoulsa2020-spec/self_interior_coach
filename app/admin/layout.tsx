@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { useState, useEffect, Suspense } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { AdminLayoutContext } from "./AdminLayoutContext";
 
@@ -148,14 +148,17 @@ const NAV_ITEMS: NavItem[] = [
 
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    if (typeof window === "undefined") return false;
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+
+  const skipNextWriteRef = useRef(true);
+  useEffect(() => {
     try {
-      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+      const saved = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+      if (saved !== null) setSidebarCollapsed(saved === "1");
     } catch {
-      return false;
+      /* ignore */
     }
-  });
+  }, []);
   const [projectOpen, setProjectOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
@@ -179,6 +182,10 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   }, [isOnProviders]);
 
   useEffect(() => {
+    if (skipNextWriteRef.current) {
+      skipNextWriteRef.current = false;
+      return;
+    }
     try {
       localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
     } catch {

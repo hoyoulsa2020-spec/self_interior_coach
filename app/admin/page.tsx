@@ -4,6 +4,8 @@ import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import CollapsiblePanel from "@/components/CollapsiblePanel";
+import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
+import { useAdminLayout } from "./AdminLayoutContext";
 import {
   ResponsiveContainer,
   LineChart,
@@ -80,6 +82,8 @@ function parseArray(value: unknown): string[] {
 }
 
 export default function AdminDashboardPage() {
+  const { sidebarCollapsed } = useAdminLayout();
+  const [videoSrc, setVideoSrc] = useState<string | null>(null);
   const [stats, setStats] = useState<Stats | null>(null);
   const [periodStats, setPeriodStats] = useState<RolePeriodStats | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -94,6 +98,10 @@ export default function AdminDashboardPage() {
   const [dailySales, setDailySales] = useState<{ date: string; amount: number }[]>([]);
   const [totalSales, setTotalSales] = useState(0);
   const [isSalesLoading, setIsSalesLoading] = useState(true);
+
+  useEffect(() => {
+    setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
+  }, []);
 
   // 총 가입자 수 + 기간별 통계
   useEffect(() => {
@@ -333,10 +341,28 @@ export default function AdminDashboardPage() {
   ];
 
   return (
-    <div className="space-y-6">
+    <div className="relative min-h-[calc(100vh-3.5rem)]">
+      {/* 배경 영상 */}
+      <div className={`fixed inset-0 top-14 left-0 z-0 ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}>
+        {videoSrc && (
+          <video
+            key={videoSrc}
+            autoPlay
+            muted
+            loop
+            playsInline
+            className="absolute inset-0 h-full w-full object-cover"
+          >
+            <source src={videoSrc} type="video/mp4" />
+          </video>
+        )}
+        <div className="absolute inset-0 bg-black/40" aria-hidden />
+      </div>
+
+      <div className="relative z-10 space-y-6">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">관리자 대시보드</h1>
-        <p className="mt-0.5 text-sm text-gray-500">전체 서비스 현황을 확인하세요.</p>
+        <h1 className="text-xl font-semibold text-white drop-shadow-md">관리자 대시보드</h1>
+        <p className="mt-0.5 text-sm text-white/90">전체 서비스 현황을 확인하세요.</p>
       </div>
 
       {/* 가입자 카드 */}
@@ -603,6 +629,7 @@ export default function AdminDashboardPage() {
           </div>
         )}
       </CollapsiblePanel>
+      </div>
     </div>
   );
 }

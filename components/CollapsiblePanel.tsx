@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 type Props = {
   title: string;
@@ -21,17 +21,18 @@ export default function CollapsiblePanel({
   headerRight,
   className = "",
 }: Props) {
-  const [collapsed, setCollapsed] = useState(() => {
+  const [collapsed, setCollapsed] = useState(defaultCollapsed);
+
+  useEffect(() => {
     if (storageKey && typeof window !== "undefined") {
       try {
         const saved = localStorage.getItem(storageKey);
-        if (saved !== null) return saved === "1";
+        if (saved !== null) setCollapsed(saved === "1");
       } catch {
         /* ignore */
       }
     }
-    return defaultCollapsed;
-  });
+  }, [storageKey]);
 
   const toggle = () => {
     setCollapsed((c) => {
