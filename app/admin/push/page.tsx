@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import PushNotificationToggle from "@/app/components/PushNotificationToggle";
 
 type ProfileOption = { user_id: string; name: string; email: string | null; business_name: string | null };
 
@@ -118,6 +119,13 @@ export default function AdminPushPage() {
         <p className="mt-0.5 text-sm text-gray-500">
           전체 구독자 또는 특정 사용자에게 푸시 알림을 보냅니다.
         </p>
+      </div>
+
+      {/* 관리자 본인 푸시 구독 (테스트용) */}
+      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
+        <h2 className="mb-3 text-sm font-semibold text-gray-700">내 푸시 알림</h2>
+        <p className="mb-3 text-xs text-gray-500">발송 테스트를 위해 본인도 푸시를 켜두세요.</p>
+        <PushNotificationToggle />
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
