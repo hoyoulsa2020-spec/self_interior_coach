@@ -108,7 +108,7 @@ export default function CustomerRequestsPage() {
     if (error) {
       console.error("문의 조회 오류:", error.message, error.details, error.hint);
     }
-    setInquiries((data ?? []) as Inquiry[]);
+    setInquiries((data ?? []) as unknown as Inquiry[]);
     setTotalCount(count ?? 0);
     setIsLoading(false);
   }, [currentPage, appliedSearch, statusFilter]);
