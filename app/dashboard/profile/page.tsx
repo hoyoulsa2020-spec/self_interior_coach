@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import PushNotificationToggle from "@/app/components/PushNotificationToggle";
 
 type Profile = {
   user_id: string;
@@ -270,6 +271,12 @@ export default function ProfilePage() {
                 ? new Date(profile.created_at).toLocaleDateString("ko-KR", { year: "numeric", month: "long", day: "numeric" })
                 : "—"}
             </span>
+          </div>
+
+          {/* 푸시 알림 */}
+          <div className="flex items-center gap-4 py-4">
+            <span className="w-24 shrink-0 text-xs font-medium text-gray-400">푸시 알림</span>
+            <PushNotificationToggle />
           </div>
         </div>
 

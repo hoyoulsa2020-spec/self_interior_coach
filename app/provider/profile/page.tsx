@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import PushNotificationToggle from "@/app/components/PushNotificationToggle";
 
 type Profile = {
   user_id: string;
@@ -271,6 +272,10 @@ export default function ProviderProfilePage() {
               <InfoRow label="사업자등록번호" value={profile.business_number} />
               <InfoRow label="가입일" value={new Date(profile.created_at).toLocaleDateString("ko-KR")} />
               <InfoRow label="온보딩" value={profile.onboarding_completed ? "완료" : "미완료"} />
+              <div className="sm:col-span-2">
+                <p className="mb-1.5 text-xs text-gray-500">푸시 알림</p>
+                <PushNotificationToggle />
+              </div>
               <InfoRow label="하자보증기간" value={profile.warranty_period ? `${profile.warranty_period}개월` : null} />
             </div>
             {/* 보유 뱃지 */}
