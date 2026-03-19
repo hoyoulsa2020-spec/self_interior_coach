@@ -15,6 +15,7 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "셀인코치",
   description: "셀인코치 - 인테리어 시공 매칭 플랫폼",
+  icons: { icon: "/icon" },
 };
 
 export default function RootLayout({
