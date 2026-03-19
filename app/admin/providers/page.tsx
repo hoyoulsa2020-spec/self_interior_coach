@@ -120,6 +120,7 @@ export default function ProvidersPage() {
 
   const [detailProvider, setDetailProvider] = useState<ProviderDetail | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
+  const [lightboxImage, setLightboxImage] = useState<string | null>(null);
 
   const searchParams = useSearchParams();
   const categoryFilter = searchParams.get("category"); // URL ?category=도배
@@ -381,8 +382,6 @@ export default function ProvidersPage() {
                   <th className="hidden px-4 py-3 lg:table-cell">시공지역</th>
                   <th className="hidden px-4 py-3 lg:table-cell">보유뱃지</th>
                   <th className="hidden px-4 py-3 lg:table-cell">하자보증기간</th>
-                  <th className="hidden px-4 py-3 md:table-cell text-center">입찰시도</th>
-                  <th className="hidden px-4 py-3 md:table-cell text-center">매칭성공</th>
                   <th className="hidden px-4 py-3 md:table-cell">온보딩</th>
                   <th className="hidden px-4 py-3 md:table-cell">가입일</th>
                   <th className="px-4 py-3 text-center">활성화</th>
@@ -476,16 +475,6 @@ export default function ProvidersPage() {
                       {provider.warranty_period ? `${provider.warranty_period}개월` : <span className="text-gray-300">—</span>}
                     </td>
 
-                    {/* 입찰시도 */}
-                    <td className="hidden px-4 py-3 md:table-cell text-center font-medium text-gray-700">
-                      {provider.bid_count ?? 0}
-                    </td>
-
-                    {/* 매칭성공 */}
-                    <td className="hidden px-4 py-3 md:table-cell text-center font-medium text-emerald-600">
-                      {provider.match_count ?? 0}
-                    </td>
-
                     <td className="hidden px-4 py-3 md:table-cell">
                       <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium
                         ${provider.onboarding_completed
@@ -526,12 +515,18 @@ export default function ProvidersPage() {
         )}
       </div>
 
-      {/* 업체 상세 모달 */}
+      {/* 업체 상세 모달 - 모바일 최적화 */}
       {(isDetailLoading || detailProvider) && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4" onClick={() => { setDetailProvider(null); setIsDetailLoading(false); }}>
-          <div className="relative w-full max-w-xl max-h-[90vh] overflow-y-auto rounded-2xl bg-white shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <div
+          className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/50 p-0 sm:px-4"
+          onClick={() => { setDetailProvider(null); setIsDetailLoading(false); }}
+        >
+          <div
+            className="relative w-full sm:max-w-xl h-[92dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl flex flex-col pb-[env(safe-area-inset-bottom)]"
+            onClick={(e) => e.stopPropagation()}
+          >
             {/* 모달 헤더 */}
-            <div className="sticky top-0 flex items-center justify-between border-b border-gray-100 bg-white px-6 py-4">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-gray-100 bg-white px-4 sm:px-6 py-3 sm:py-4 shrink-0">
               <h2 className="text-base font-semibold text-gray-800">
                 {detailProvider?.business_name || "업체 상세정보"}
               </h2>
@@ -547,7 +542,7 @@ export default function ProvidersPage() {
                 <span className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
               </div>
             ) : detailProvider && (
-              <div className="space-y-5 px-6 py-5">
+              <div className="space-y-5 px-4 sm:px-6 py-4 sm:py-5 flex-1 min-h-0">
 
                 {/* 기본정보 */}
                 <Section title="기본 정보">
@@ -624,10 +619,14 @@ export default function ProvidersPage() {
                 {/* 사업자등록증 */}
                 {detailProvider.business_license_url && (
                   <Section title="사업자등록증">
-                    <a href={detailProvider.business_license_url} target="_blank" rel="noopener noreferrer" className="block overflow-hidden rounded-xl border border-gray-200">
+                    <button
+                      type="button"
+                      onClick={() => setLightboxImage(detailProvider.business_license_url)}
+                      className="block w-full overflow-hidden rounded-lg border border-gray-200 transition hover:border-indigo-300 hover:shadow-md max-w-[100px] mx-auto"
+                    >
                       <img src={detailProvider.business_license_url} alt="사업자등록증" className="w-full object-contain" />
-                    </a>
-                    <p className="mt-1.5 text-xs text-gray-400 text-center">이미지 클릭 시 원본 열기</p>
+                    </button>
+                    <p className="mt-1.5 text-xs text-gray-400 text-center">탭하면 크게 보기</p>
                   </Section>
                 )}
 
@@ -692,20 +691,6 @@ export default function ProvidersPage() {
                   </div>
                 </Section>
 
-                {/* 활동 현황 */}
-                <Section title="활동 현황">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div className="rounded-xl bg-gray-50 p-4 text-center">
-                      <p className="text-2xl font-bold text-gray-800">{detailProvider.bid_count ?? 0}</p>
-                      <p className="mt-0.5 text-xs text-gray-500">입찰시도</p>
-                    </div>
-                    <div className="rounded-xl bg-emerald-50 p-4 text-center">
-                      <p className="text-2xl font-bold text-emerald-600">{detailProvider.match_count ?? 0}</p>
-                      <p className="mt-0.5 text-xs text-gray-500">매칭성공</p>
-                    </div>
-                  </div>
-                </Section>
-
               </div>
             )}
           </div>
@@ -762,6 +747,44 @@ export default function ProvidersPage() {
           </button>
         </div>
       )}
+
+      {/* 사업자등록증 이미지 라이트박스 */}
+      {lightboxImage && (
+        <ImageLightbox url={lightboxImage} onClose={() => setLightboxImage(null)} />
+      )}
+    </div>
+  );
+}
+
+function ImageLightbox({ url, onClose }: { url: string; onClose: () => void }) {
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => { if (e.key === "Escape") onClose(); };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [onClose]);
+
+  return (
+    <div
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+      onClick={onClose}
+    >
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
+        className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20"
+        aria-label="닫기"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+          <line x1="18" y1="6" x2="6" y2="18" /><line x1="6" y1="6" x2="18" y2="18" />
+        </svg>
+      </button>
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt="사업자등록증"
+        onClick={(e) => e.stopPropagation()}
+        className="max-h-[85vh] max-w-full rounded-xl object-contain shadow-2xl"
+      />
     </div>
   );
 }
