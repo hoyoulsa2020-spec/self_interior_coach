@@ -105,7 +105,7 @@ export default function ProviderProductsPage() {
 
     const { data, count, error } = await query;
     if (error) console.error("업체 조회 오류:", error.message);
-    setProviders((data as Provider[]) ?? []);
+    setProviders((data ?? []) as unknown as Provider[]);
     setTotalCount(count ?? 0);
     setIsLoading(false);
   }, [currentPage, appliedSearch]);

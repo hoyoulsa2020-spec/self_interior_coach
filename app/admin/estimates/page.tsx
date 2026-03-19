@@ -14,16 +14,8 @@ type EstimateReview = {
   answer_file_urls: string[];
   answered_at: string | null;
   created_at: string;
-  profiles?: { name: string; email: string; phone: string } | null;
+  profiles?: { name: string | null; email: string | null; phone: string | null }[];
 };
-
-function normalizeReview(row: Record<string, unknown>): EstimateReview {
-  const profiles = row.profiles;
-  const profileObj = Array.isArray(profiles) && profiles.length > 0
-    ? (profiles[0] as { name: string; email: string; phone: string })
-    : (profiles as { name: string; email: string; phone: string } | null) ?? null;
-  return { ...row, profiles: profileObj } as EstimateReview;
-}
 
 const PAGE_SIZE = 20;
 
@@ -129,7 +121,7 @@ export default function AdminEstimatesPage() {
     if (statusFilter !== "all") query = query.eq("status", statusFilter);
     const { data, count, error } = await query;
     if (error) console.error("견적서 검토 조회 오류:", error.message, error.details, error.hint);
-    setReviews((data ?? []).map(normalizeReview));
+    setReviews((data ?? []) as unknown as EstimateReview[]);
     setTotalCount(count ?? 0);
     setIsLoading(false);
   }, [currentPage, appliedSearch, statusFilter]);
@@ -256,7 +248,7 @@ export default function AdminEstimatesPage() {
                         {r.file_urls?.length > 0 && <span className="text-xs text-gray-400">📎{r.file_urls.length}</span>}
                       </div>
                     </td>
-                    <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">{r.profiles?.name || "—"}</td>
+                    <td className="hidden px-4 py-3 text-gray-500 sm:table-cell">{r.profiles?.[0]?.name || "—"}</td>
                     <td className="hidden px-4 py-3 text-gray-400 md:table-cell">{new Date(r.created_at).toLocaleDateString("ko-KR")}</td>
                     <td className="hidden px-4 py-3 lg:table-cell">
                       {r.answered_at
@@ -314,7 +306,7 @@ export default function AdminEstimatesPage() {
                   </span>
                   <h3 className="text-sm font-semibold text-gray-800">{detail.title}</h3>
                 </div>
-                <p className="mt-0.5 text-xs text-gray-400">{detail.profiles?.name} · {new Date(detail.created_at).toLocaleString("ko-KR")}</p>
+                <p className="mt-0.5 text-xs text-gray-400">{detail.profiles?.[0]?.name} · {new Date(detail.created_at).toLocaleString("ko-KR")}</p>
               </div>
               <button type="button" onClick={() => setDetail(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

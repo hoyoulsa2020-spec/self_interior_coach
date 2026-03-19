@@ -77,7 +77,7 @@ export default function EstimateLabPage() {
       if (error) {
         console.error("견적 데이터 조회 오류:", error.message);
       } else {
-        setEstimates((estData ?? []) as EstimateRow[]);
+        setEstimates((estData ?? []) as unknown as EstimateRow[]);
       }
       setIsLoading(false);
     };
