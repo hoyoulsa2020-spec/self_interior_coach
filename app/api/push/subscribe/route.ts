@@ -40,7 +40,10 @@ export async function POST(request: NextRequest) {
 
   if (error) {
     console.error("[push/subscribe]", error);
-    return NextResponse.json({ error: "구독 저장에 실패했습니다." }, { status: 500 });
+    return NextResponse.json(
+      { error: "구독 저장에 실패했습니다.", detail: error.message },
+      { status: 500 }
+    );
   }
 
   return NextResponse.json({ success: true });

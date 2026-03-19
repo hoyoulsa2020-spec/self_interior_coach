@@ -81,7 +81,7 @@ export function usePushNotifications() {
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
-        setError(data.error || "구독에 실패했습니다.");
+        setError(data.detail ? `${data.error}: ${data.detail}` : (data.error || "구독에 실패했습니다."));
         return false;
       }
 

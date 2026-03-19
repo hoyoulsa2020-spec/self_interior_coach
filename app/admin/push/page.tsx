@@ -18,7 +18,25 @@ export default function AdminPushPage() {
   const [isSending, setIsSending] = useState(false);
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [subsCount, setSubsCount] = useState<number | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // 구독자 수 조회
+  const fetchSubsCount = async () => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) return;
+    const res = await fetch("/api/push/subscriptions-count", {
+      headers: { Authorization: `Bearer ${session.access_token}` },
+    });
+    const data = await res.json();
+    if (res.ok) setSubsCount(data.count ?? 0);
+  };
+
+  useEffect(() => {
+    fetchSubsCount();
+    const interval = setInterval(fetchSubsCount, 10000);
+    return () => clearInterval(interval);
+  }, []);
 
   // 이름 검색 (디바운스)
   useEffect(() => {
@@ -121,11 +139,23 @@ export default function AdminPushPage() {
         </p>
       </div>
 
-      {/* 관리자 본인 푸시 구독 (테스트용) */}
+      {/* 구독자 수 + 관리자 본인 푸시 구독 */}
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <h2 className="mb-3 text-sm font-semibold text-gray-700">내 푸시 알림</h2>
-        <p className="mb-3 text-xs text-gray-500">발송 테스트를 위해 본인도 푸시를 켜두세요.</p>
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold text-gray-700">내 푸시 알림</h2>
+          {subsCount !== null && (
+            <span className="text-xs text-gray-500">전체 구독자: <strong>{subsCount}명</strong></span>
+          )}
+        </div>
+        <p className="mb-3 text-xs text-gray-500">발송 테스트를 위해 본인도 푸시를 켜두세요. 토글 켜면 DB에 저장됩니다.</p>
         <PushNotificationToggle />
+        <button
+          type="button"
+          onClick={fetchSubsCount}
+          className="mt-3 text-xs text-indigo-600 hover:underline"
+        >
+          구독자 수 새로고침
+        </button>
       </div>
 
       <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
