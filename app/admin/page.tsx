@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
+import CollapsiblePanel from "@/components/CollapsiblePanel";
 import {
   ResponsiveContainer,
   LineChart,
@@ -339,9 +340,10 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* 가입자 카드 */}
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-        {/* 개인고객 / 공급업체 카드 (기간별 통계 포함) */}
-        {roleCards.map((card) => (
+      <CollapsiblePanel title="가입자 현황" subtitle="개인고객·공급업체·전체" storageKey="admin-dash-stats">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {/* 개인고객 / 공급업체 카드 (기간별 통계 포함) */}
+          {roleCards.map((card) => (
           <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
               <div className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl ${card.iconBg} ${card.iconColor}`}>
@@ -423,13 +425,10 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+      </CollapsiblePanel>
 
       {/* 전문분야별 업체 현황 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4">
-          <h2 className="text-sm font-semibold text-gray-800">전문분야별 업체 현황</h2>
-          <p className="text-xs text-gray-400">전체 누적 기준</p>
-        </div>
+      <CollapsiblePanel title="전문분야별 업체 현황" subtitle="전체 누적 기준" storageKey="admin-dash-category">
         {isCatLoading ? (
           <div className="flex gap-2">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -450,15 +449,14 @@ export default function AdminDashboardPage() {
             ))}
           </div>
         )}
-      </div>
+      </CollapsiblePanel>
 
       {/* 견적요청 & 입찰 현황 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-800">견적요청 & 입찰 현황</h2>
-            <p className="text-xs text-gray-400">일별 프로젝트 요청건수 및 누적 입찰 통계</p>
-          </div>
+      <CollapsiblePanel
+        title="견적요청 & 입찰 현황"
+        subtitle="일별 프로젝트 요청건수 및 누적 입찰 통계"
+        storageKey="admin-dash-activity"
+        headerRight={
           <div className="flex gap-1.5">
             {[7, 14, 30].map((d) => (
               <button
@@ -475,8 +473,8 @@ export default function AdminDashboardPage() {
               </button>
             ))}
           </div>
-        </div>
-
+        }
+      >
         {/* 요약 카드 3개 */}
         <div className="mb-5 grid grid-cols-3 gap-3">
           {[
@@ -520,20 +518,20 @@ export default function AdminDashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </CollapsiblePanel>
 
       {/* 일별 가입 추이 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-800">일별 가입 추이</h2>
-            <p className="text-xs text-gray-400">최근 30일</p>
-          </div>
+      <CollapsiblePanel
+        title="일별 가입 추이"
+        subtitle="최근 30일"
+        storageKey="admin-dash-signup"
+        headerRight={
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />개인고객</span>
             <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />공급업체</span>
           </div>
-        </div>
+        }
+      >
         {isChartLoading ? (
           <div className="flex h-56 items-center justify-center">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
@@ -553,22 +551,22 @@ export default function AdminDashboardPage() {
             </LineChart>
           </ResponsiveContainer>
         )}
-      </div>
+      </CollapsiblePanel>
 
       {/* 업체들 총 계약완료 금액 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-800">일자별 계약완료 금액</h2>
-            <p className="mt-0.5 text-xs text-gray-400">전체 업체 총 매출 · 최근 30일 기준</p>
-          </div>
+      <CollapsiblePanel
+        title="일자별 계약완료 금액"
+        subtitle="전체 업체 총 매출 · 최근 30일 기준"
+        storageKey="admin-dash-sales"
+        headerRight={
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2">
             <p className="text-[10px] text-emerald-600">총 매출금액</p>
             <p className="text-lg font-bold tabular-nums text-emerald-700 transition-all duration-300">
               ₩{formatMoney(animatedTotalSales)}
             </p>
           </div>
-        </div>
+        }
+      >
         {isSalesLoading ? (
           <div className="flex h-56 items-center justify-center">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
@@ -604,7 +602,7 @@ export default function AdminDashboardPage() {
             </ResponsiveContainer>
           </div>
         )}
-      </div>
+      </CollapsiblePanel>
     </div>
   );
 }

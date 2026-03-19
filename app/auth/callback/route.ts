@@ -1,6 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { createAdminClient } from "@/lib/supabaseAdmin";
 import { sendWelcomeAlimtalk } from "@/lib/kakaoAlimtalk";
+
+function getKstDateStr() {
+  const now = new Date();
+  const kst = new Date(now.getTime() + 9 * 60 * 60 * 1000);
+  return kst.toISOString().slice(0, 10);
+}
 
 export async function GET(request: NextRequest) {
   const { searchParams, origin } = new URL(request.url);
@@ -16,6 +23,39 @@ export async function GET(request: NextRequest) {
 
     if (!error && data.user) {
       const user = data.user;
+
+      // OAuth 로그인 시 접속 기록 (UPDATE 방식)
+      try {
+        const admin = createAdminClient();
+        const accessDate = getKstDateStr();
+        const { data: existingLog } = await admin
+          .from("daily_access_logs")
+          .select("visit_count")
+          .eq("user_id", user.id)
+          .eq("access_date", accessDate)
+          .maybeSingle();
+
+        if (existingLog) {
+          await admin
+            .from("daily_access_logs")
+            .update({
+              last_visit_at: new Date().toISOString(),
+              visit_count: (existingLog.visit_count ?? 1) + 1,
+            })
+            .eq("user_id", user.id)
+            .eq("access_date", accessDate);
+        } else {
+          await admin.from("daily_access_logs").insert({
+            user_id: user.id,
+            access_date: accessDate,
+            first_visit_at: new Date().toISOString(),
+            last_visit_at: new Date().toISOString(),
+            visit_count: 1,
+          });
+        }
+      } catch {
+        /* ignore */
+      }
       const metadata = user.user_metadata as Record<string, string>;
       const name = metadata.full_name ?? metadata.name ?? "";
       const phone = metadata.phone ?? "";

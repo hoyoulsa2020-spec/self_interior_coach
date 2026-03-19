@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { AdminLayoutContext } from "./AdminLayoutContext";
+
+const SIDEBAR_COLLAPSED_KEY = "admin-sidebar-collapsed";
 
 function parseArray(value: unknown): string[] {
   if (!value) return [];
@@ -122,6 +125,16 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "접속로그",
+    href: "/admin/access-log",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 20h9" />
+        <path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z" />
+      </svg>
+    ),
+  },
+  {
     label: "설정",
     href: "/admin/settings",
     icon: (
@@ -133,10 +146,16 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const SIDEBAR_W = "w-60";
-
 function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [projectOpen, setProjectOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
@@ -158,6 +177,24 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnProviders) setProviderOpen(true);
   }, [isOnProviders]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsLg(mq.matches);
+    const handler = () => setIsLg(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const showCollapsed = sidebarCollapsed && isLg;
 
   // category 테이블에서 목록 조회
   useEffect(() => {
@@ -210,8 +247,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   };
 
   const closeSidebar = () => setSidebarOpen(false);
+  const toggleSidebarCollapse = () => setSidebarCollapsed((c) => !c);
+  const mainPl = sidebarCollapsed ? "lg:pl-16" : "lg:pl-60";
 
   return (
+    <AdminLayoutContext.Provider value={{ sidebarCollapsed }}>
     <div className="min-h-screen bg-gray-50">
       {/* 상단 헤더 */}
       <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm">
@@ -247,26 +287,56 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
 
       {/* 사이드바 */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full ${SIDEBAR_W} flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out
+        className={`fixed top-0 left-0 z-50 flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out
           lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
+          ${sidebarCollapsed ? "lg:w-16" : "lg:w-60"}
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
-        <div className="flex h-14 items-center justify-between border-b border-gray-100 px-5">
-          <span className="text-sm font-bold text-gray-800">셀인코치</span>
-          <button
-            type="button"
-            onClick={closeSidebar}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:hidden"
-            aria-label="메뉴 닫기"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+        <div className={`flex h-14 shrink-0 items-center justify-between border-b border-gray-100 ${showCollapsed ? "lg:px-2" : "px-5"}`}>
+          <div className={`flex items-center gap-2.5 ${showCollapsed ? "lg:justify-center lg:gap-0" : ""}`}>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <rect x="3" y="3" width="7" height="7" rx="1" />
+                <rect x="14" y="3" width="7" height="7" rx="1" />
+                <rect x="3" y="14" width="7" height="9" rx="1" />
+                <rect x="14" y="14" width="7" height="9" rx="1" />
+              </svg>
+            </div>
+            {!showCollapsed && <span className="text-sm font-bold text-gray-800">셀인코치</span>}
+          </div>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleSidebarCollapse}
+              className="hidden rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:flex"
+              aria-label={showCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+              title={showCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            >
+              {showCollapsed ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={closeSidebar}
+              className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:hidden"
+              aria-label="메뉴 닫기"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className={`flex-1 overflow-y-auto py-4 ${showCollapsed ? "lg:px-2" : "px-3"}`}>
           <ul className="space-y-0.5">
             {/* 대시보드 */}
             <li>
@@ -274,65 +344,90 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 href="/admin"
                 onClick={closeSidebar}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                  ${showCollapsed ? "lg:justify-center lg:px-0" : ""}
                   ${pathname === "/admin" ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                title={showCollapsed ? "대시보드" : undefined}
               >
                 <span className={pathname === "/admin" ? "text-indigo-500" : "text-gray-400"}>
                   {NAV_ITEMS[0].icon}
                 </span>
-                대시보드
+                {!showCollapsed && "대시보드"}
               </Link>
             </li>
 
             {/* 프로젝트관리 — 아코디언 */}
             <li>
-              <button
-                type="button"
-                onClick={() => setProjectOpen((v) => !v)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
-                  ${isOnProjects || isOnBidMonitor ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
-              >
-                <span className={isOnProjects || isOnBidMonitor ? "text-indigo-500" : "text-gray-400"}>
-                  {NAV_ITEMS[1].icon}
-                </span>
-                <span className="flex-1 text-left">프로젝트관리</span>
-                {pendingCounts.projects > 0 && (
-                  <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                    {pendingCounts.projects > 99 ? "99+" : pendingCounts.projects}
-                  </span>
-                )}
-                <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                  className={`shrink-0 transition-transform duration-200 ${projectOpen ? "rotate-180" : ""}`}
+              {showCollapsed ? (
+                <Link
+                  href="/admin/projects"
+                  onClick={closeSidebar}
+                  className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
+                    ${isOnProjects || isOnBidMonitor ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  title="프로젝트관리"
                 >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
+                  <span className="relative shrink-0">
+                    <span className={isOnProjects || isOnBidMonitor ? "text-indigo-500" : "text-gray-400"}>
+                      {NAV_ITEMS[1].icon}
+                    </span>
+                    {pendingCounts.projects > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {pendingCounts.projects > 99 ? "99+" : pendingCounts.projects}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setProjectOpen((v) => !v)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${isOnProjects || isOnBidMonitor ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  >
+                    <span className={isOnProjects || isOnBidMonitor ? "text-indigo-500" : "text-gray-400"}>
+                      {NAV_ITEMS[1].icon}
+                    </span>
+                    <span className="flex-1 text-left">프로젝트관리</span>
+                    {pendingCounts.projects > 0 && (
+                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                        {pendingCounts.projects > 99 ? "99+" : pendingCounts.projects}
+                      </span>
+                    )}
+                    <svg
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      className={`shrink-0 transition-transform duration-200 ${projectOpen ? "rotate-180" : ""}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
 
-              {projectOpen && (
-                <ul className="mt-0.5 space-y-0.5 pl-9">
-                  <li>
-                    <Link
-                      href="/admin/projects"
-                      onClick={closeSidebar}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
-                        ${isOnProjects ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                      프로젝트관리
-                    </Link>
-                  </li>
-                  <li>
-                    <Link
-                      href="/admin/bid-monitor"
-                      onClick={closeSidebar}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
-                        ${isOnBidMonitor ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
-                    >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                      견적입찰모니터
-                    </Link>
-                  </li>
-                </ul>
+                  {projectOpen && (
+                    <ul className="mt-0.5 space-y-0.5 pl-9">
+                      <li>
+                        <Link
+                          href="/admin/projects"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${isOnProjects ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          프로젝트관리
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/admin/bid-monitor"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${isOnBidMonitor ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          견적입찰모니터
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
+                </>
               )}
             </li>
 
@@ -342,72 +437,89 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 href="/admin/members"
                 onClick={closeSidebar}
                 className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                  ${showCollapsed ? "lg:justify-center lg:px-0" : ""}
                   ${pathname.startsWith("/admin/members") ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                title={showCollapsed ? "개인회원관리" : undefined}
               >
                 <span className={pathname.startsWith("/admin/members") ? "text-indigo-500" : "text-gray-400"}>
                   {NAV_ITEMS[2].icon}
                 </span>
-                개인회원관리
+                {!showCollapsed && "개인회원관리"}
               </Link>
             </li>
 
             {/* 공급업체관리 — 아코디언 */}
             <li>
-              <button
-                type="button"
-                onClick={() => setProviderOpen((v) => !v)}
-                className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
-                  ${isOnProviders ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
-              >
-                <span className={isOnProviders ? "text-indigo-500" : "text-gray-400"}>
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                    <rect x="2" y="7" width="20" height="14" rx="2" />
-                    <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
-                  </svg>
-                </span>
-                <span className="flex-1 text-left">공급업체관리</span>
-                <svg
-                  width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
-                  className={`shrink-0 transition-transform duration-200 ${providerOpen ? "rotate-180" : ""}`}
+              {showCollapsed ? (
+                <Link
+                  href="/admin/providers"
+                  onClick={closeSidebar}
+                  className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
+                    ${isOnProviders ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  title="공급업체관리"
                 >
-                  <polyline points="6 9 12 15 18 9" />
-                </svg>
-              </button>
-
-              {/* 하위 메뉴 */}
-              {providerOpen && (
-                <ul className="mt-0.5 space-y-0.5 pl-9">
-                  {/* 전체 */}
-                  <li>
-                    <Link
-                      href="/admin/providers"
-                      onClick={closeSidebar}
-                      className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
-                        ${isOnProviders && !activeCategoryParam ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                  <span className={isOnProviders ? "text-indigo-500" : "text-gray-400"}>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                      <rect x="2" y="7" width="20" height="14" rx="2" />
+                      <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                    </svg>
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setProviderOpen((v) => !v)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${isOnProviders ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  >
+                    <span className={isOnProviders ? "text-indigo-500" : "text-gray-400"}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <rect x="2" y="7" width="20" height="14" rx="2" />
+                        <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
+                      </svg>
+                    </span>
+                    <span className="flex-1 text-left">공급업체관리</span>
+                    <svg
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      className={`shrink-0 transition-transform duration-200 ${providerOpen ? "rotate-180" : ""}`}
                     >
-                      <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                      전체
-                    </Link>
-                  </li>
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
 
-                  {/* 공정별 카테고리 */}
-                  {categories.map((cat) => {
-                    const isActive = isOnProviders && activeCategoryParam === cat;
-                    return (
-                      <li key={cat}>
+                  {providerOpen && (
+                    <ul className="mt-0.5 space-y-0.5 pl-9">
+                      <li>
                         <Link
-                          href={`/admin/providers?category=${encodeURIComponent(cat)}`}
+                          href="/admin/providers"
                           onClick={closeSidebar}
                           className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
-                            ${isActive ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                            ${isOnProviders && !activeCategoryParam ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
                         >
                           <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                          {cat}
+                          전체
                         </Link>
                       </li>
-                    );
-                  })}
-                </ul>
+                      {categories.map((cat) => {
+                        const isActive = isOnProviders && activeCategoryParam === cat;
+                        return (
+                          <li key={cat}>
+                            <Link
+                              href={`/admin/providers?category=${encodeURIComponent(cat)}`}
+                              onClick={closeSidebar}
+                              className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                                ${isActive ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                            >
+                              <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                              {cat}
+                            </Link>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </>
               )}
             </li>
 
@@ -425,14 +537,27 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                     href={item.href}
                     onClick={closeSidebar}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${showCollapsed ? "lg:justify-center lg:px-0" : ""}
                       ${isActive ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                    title={showCollapsed ? item.label : undefined}
                   >
-                    <span className={isActive ? "text-indigo-500" : "text-gray-400"}>{item.icon}</span>
-                    <span className="flex-1">{item.label}</span>
-                    {badge > 0 && (
-                      <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
-                        {badge > 99 ? "99+" : badge}
-                      </span>
+                    <span className="relative shrink-0">
+                      <span className={isActive ? "text-indigo-500" : "text-gray-400"}>{item.icon}</span>
+                      {badge > 0 && showCollapsed && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {badge > 99 ? "99+" : badge}
+                        </span>
+                      )}
+                    </span>
+                    {!showCollapsed && (
+                      <>
+                        <span className="flex-1">{item.label}</span>
+                        {badge > 0 && (
+                          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-[10px] font-bold text-white">
+                            {badge > 99 ? "99+" : badge}
+                          </span>
+                        )}
+                      </>
                     )}
                   </Link>
                 </li>
@@ -443,10 +568,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* 본문 */}
-      <main className="pt-14 lg:pl-60 min-h-screen">
-        <div className="p-4 sm:p-6">{children}</div>
+      <main className={`min-h-screen pt-14 ${mainPl}`}>
+        <div className="mx-auto max-w-7xl p-4 sm:p-6">{children}</div>
       </main>
     </div>
+    </AdminLayoutContext.Provider>
   );
 }
 

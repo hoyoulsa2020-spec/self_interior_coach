@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
 import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
 import { supabase } from "@/lib/supabaseClient";
+import CollapsiblePanel from "@/components/CollapsiblePanel";
+import { useDashboardLayout } from "./DashboardLayoutContext";
 import ProjectCreateModal from "@/components/ProjectCreateModal";
 
 type Project = {
@@ -23,6 +25,7 @@ const STATUS_LABEL: Record<string, { label: string; color: string }> = {
 };
 
 export default function DashboardPage() {
+  const { sidebarCollapsed } = useDashboardLayout();
   const [projects, setProjects] = useState<Project[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [userName, setUserName] = useState("");
@@ -74,7 +77,7 @@ export default function DashboardPage() {
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       {/* 배경 영상 (대시보드 메인만) */}
-      <div className="fixed inset-0 top-14 left-0 z-0 lg:left-60">
+      <div className={`fixed inset-0 top-14 left-0 z-0 ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}>
         {videoSrc && (
         <video
           key={videoSrc}
@@ -113,14 +116,16 @@ export default function DashboardPage() {
       </div>
 
       {/* 진행중 프로젝트 */}
-      <section>
-        <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-sm font-semibold text-white/95">진행중인 프로젝트</h2>
-          <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-white/80">
+      <CollapsiblePanel
+        title="진행중인 프로젝트"
+        storageKey="consumer-dash-active"
+        headerRight={
+          <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:bg-indigo-100">
             <span>전체 보기</span>
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
           </Link>
-        </div>
+        }
+      >
         {isLoading ? (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-gray-100" />)}
@@ -148,22 +153,24 @@ export default function DashboardPage() {
             {activeProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
           </div>
         )}
-      </section>
+      </CollapsiblePanel>
 
       {/* 대기중·견적대기 등 (하단) */}
       {!isLoading && otherProjects.length > 0 && (
-        <section>
-          <div className="mb-3 flex items-center justify-between">
-            <h2 className="text-sm font-semibold text-white/95">대기중·견적대기 프로젝트</h2>
-            <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-white/60 bg-white/10 px-3 py-1.5 text-xs font-medium text-white backdrop-blur-sm transition hover:bg-white/20 hover:border-white/80">
-            <span>전체 보기</span>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
-          </Link>
-          </div>
+        <CollapsiblePanel
+          title="대기중·견적대기 프로젝트"
+          storageKey="consumer-dash-other"
+          headerRight={
+            <Link href="/dashboard/projects" className="inline-flex items-center gap-1.5 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-600 transition hover:bg-indigo-100">
+              <span>전체 보기</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M5 12h14" /><path d="m12 5 7 7-7 7" /></svg>
+            </Link>
+          }
+        >
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {otherProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
           </div>
-        </section>
+        </CollapsiblePanel>
       )}
 
       {showModal && userId && (

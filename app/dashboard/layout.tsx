@@ -4,6 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { DashboardLayoutContext } from "./DashboardLayoutContext";
+
+const SIDEBAR_COLLAPSED_KEY = "dashboard-sidebar-collapsed";
 
 type NavItem = {
   label: string;
@@ -106,10 +109,16 @@ const NAV_ITEMS: NavItem[] = [
   },
 ];
 
-const SIDEBAR_W = "w-60";
-
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    if (typeof window === "undefined") return false;
+    try {
+      return localStorage.getItem(SIDEBAR_COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
   const [providersExpanded, setProvidersExpanded] = useState(false);
   const [userName, setUserName] = useState<string>("");
   const pathname = usePathname();
@@ -120,6 +129,24 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setProvidersExpanded(true);
     }
   }, [pathname]);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(SIDEBAR_COLLAPSED_KEY, sidebarCollapsed ? "1" : "0");
+    } catch {
+      /* ignore */
+    }
+  }, [sidebarCollapsed]);
+
+  const [isLg, setIsLg] = useState(false);
+  useEffect(() => {
+    const mq = window.matchMedia("(min-width: 1024px)");
+    setIsLg(mq.matches);
+    const handler = () => setIsLg(mq.matches);
+    mq.addEventListener("change", handler);
+    return () => mq.removeEventListener("change", handler);
+  }, []);
+  const showCollapsed = sidebarCollapsed && isLg;
 
   useEffect(() => {
     if (initializedRef.current) return;
@@ -151,8 +178,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   };
 
   const closeSidebar = () => setSidebarOpen(false);
+  const toggleSidebarCollapse = () => setSidebarCollapsed((c) => !c);
+  const mainPl = sidebarCollapsed ? "lg:pl-16" : "lg:pl-60";
 
   return (
+    <DashboardLayoutContext.Provider value={{ sidebarCollapsed }}>
     <div className="min-h-screen bg-gray-50">
       {/* 상단 헤더 */}
       <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm">
@@ -197,36 +227,56 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
       {/* 사이드바 */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full ${SIDEBAR_W} flex-col bg-white shadow-xl transition-transform duration-300 ease-in-out
+        className={`fixed top-0 left-0 z-50 flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out
           lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
+          ${sidebarCollapsed ? "lg:w-16" : "lg:w-60"}
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
       >
         {/* 사이드바 헤더 */}
-        <div className="flex h-14 items-center justify-between border-b border-gray-100 px-5">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-600 text-white">
+        <div className={`flex h-14 shrink-0 items-center justify-between border-b border-gray-100 ${showCollapsed ? "lg:px-2" : "px-5"}`}>
+          <div className={`flex items-center gap-2.5 ${showCollapsed ? "lg:justify-center lg:gap-0" : ""}`}>
+            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-indigo-600 text-white">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                 <circle cx="12" cy="7" r="4" />
               </svg>
             </div>
-            <span className="text-sm font-bold text-gray-800">셀인코치</span>
+            {!showCollapsed && <span className="text-sm font-bold text-gray-800">셀인코치</span>}
           </div>
-          <button
-            type="button"
-            onClick={closeSidebar}
-            className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:hidden"
-            aria-label="메뉴 닫기"
-          >
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <line x1="18" y1="6" x2="6" y2="18" />
-              <line x1="6" y1="6" x2="18" y2="18" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={toggleSidebarCollapse}
+              className="hidden rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:flex"
+              aria-label={showCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+              title={showCollapsed ? "사이드바 펼치기" : "사이드바 접기"}
+            >
+              {showCollapsed ? (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              ) : (
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              )}
+            </button>
+            <button
+              type="button"
+              onClick={closeSidebar}
+              className="rounded-lg p-1.5 text-gray-400 transition hover:bg-gray-100 lg:hidden"
+              aria-label="메뉴 닫기"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                <line x1="18" y1="6" x2="6" y2="18" />
+                <line x1="6" y1="6" x2="18" y2="18" />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {/* 사용자 정보 */}
-        {userName && (
+        {userName && !showCollapsed && (
           <div className="border-b border-gray-100 px-5 py-3">
             <div className="flex items-center gap-2.5">
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600">
@@ -239,13 +289,39 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             </div>
           </div>
         )}
+        {userName && showCollapsed && (
+          <div className="hidden border-b border-gray-100 py-3 lg:flex lg:justify-center">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-indigo-100 text-xs font-bold text-indigo-600" title={userName}>
+              {userName.charAt(0)}
+            </div>
+          </div>
+        )}
 
-        <nav className="flex-1 overflow-y-auto px-3 py-4">
+        <nav className={`flex-1 overflow-y-auto py-4 ${showCollapsed ? "lg:px-2" : "px-3"}`}>
           <ul className="space-y-0.5">
             {NAV_ITEMS.map((item) => {
               if (item.children) {
                 const isExpanded = item.label === "시공업체 견적확인" ? providersExpanded : true;
                 const toggleExpanded = item.label === "시공업체 견적확인" ? () => setProvidersExpanded((p) => !p) : undefined;
+                const firstChildHref = item.children[0]?.href;
+                const isChildActive = item.children.some((c) => pathname === c.href || pathname.startsWith(c.href + "/"));
+
+                if (showCollapsed) {
+                  return (
+                    <li key={item.label}>
+                      <Link
+                        href={firstChildHref!}
+                        onClick={closeSidebar}
+                        className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
+                          ${isChildActive ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                        title={item.label}
+                      >
+                        <span className={isChildActive ? "text-indigo-500" : "text-gray-400"}>{item.icon}</span>
+                      </Link>
+                    </li>
+                  );
+                }
+
                 return (
                   <li key={item.label}>
                     <button
@@ -295,15 +371,17 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     href={item.href!}
                     onClick={closeSidebar}
                     className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${showCollapsed ? "lg:justify-center lg:px-0" : ""}
                       ${isActive
                         ? "bg-indigo-50 text-indigo-600"
                         : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"
                       }`}
+                    title={showCollapsed ? item.label : undefined}
                   >
                     <span className={isActive ? "text-indigo-500" : "text-gray-400"}>
                       {item.icon}
                     </span>
-                    {item.label}
+                    {!showCollapsed && item.label}
                   </Link>
                 </li>
               );
@@ -312,26 +390,29 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         </nav>
 
         {/* 사이드바 하단 */}
-        <div className="border-t border-gray-100 px-4 py-4">
+        <div className={`shrink-0 border-t border-gray-100 py-4 ${showCollapsed ? "lg:px-2" : "px-4"}`}>
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
+            className={`flex w-full items-center gap-2.5 rounded-xl py-2.5 text-sm text-gray-500 transition hover:bg-gray-100 hover:text-gray-700
+              ${showCollapsed ? "lg:justify-center lg:px-0" : "px-3"}`}
+            title="로그아웃"
           >
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
               <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
               <polyline points="16 17 21 12 16 7" />
               <line x1="21" y1="12" x2="9" y2="12" />
             </svg>
-            로그아웃
+            {!showCollapsed && "로그아웃"}
           </button>
         </div>
       </aside>
 
       {/* 본문 */}
-      <main className="min-h-screen pt-14 lg:pl-60">
+      <main className={`min-h-screen pt-14 ${mainPl}`}>
         <div className="p-4 sm:p-6">{children}</div>
       </main>
     </div>
+    </DashboardLayoutContext.Provider>
   );
 }

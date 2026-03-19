@@ -3,7 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { useProviderLayout } from "../ProviderLayoutContext";
 import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
+import CollapsiblePanel from "@/components/CollapsiblePanel";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend,
@@ -80,6 +82,7 @@ function getDateRange(days: number): string[] {
 }
 
 export default function ProviderDashboardPage() {
+  const { sidebarCollapsed } = useProviderLayout();
   const [businessName, setBusinessName] = useState<string>("");
   const [myCategories, setMyCategories] = useState<string[]>([]);
   const [categoryStats, setCategoryStats] = useState<CategoryStat[]>([]);
@@ -426,7 +429,7 @@ export default function ProviderDashboardPage() {
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
       {/* 배경 영상 */}
-      <div className="fixed inset-0 top-14 left-0 z-0 bg-black lg:left-60">
+      <div className={`fixed inset-0 top-14 left-0 z-0 bg-black ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}>
         {videoSrc && (
         <video
           key={videoSrc}
@@ -450,38 +453,38 @@ export default function ProviderDashboardPage() {
       </div>
 
       {/* 요약 카드 */}
-      <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">견적대기 프로젝트</p>
-          <p className="mt-1 text-2xl font-bold text-indigo-600">{estimateWaitingCount}</p>
-          <p className="mt-0.5 text-[10px] text-gray-400">내 전문분야 매칭</p>
+      <CollapsiblePanel title="대시보드 요약" storageKey="provider-dash-summary">
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs text-gray-500">견적대기 프로젝트</p>
+            <p className="mt-1 text-2xl font-bold text-indigo-600">{estimateWaitingCount}</p>
+            <p className="mt-0.5 text-[10px] text-gray-400">내 전문분야 매칭</p>
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs text-gray-500">기간 내 신규 의뢰</p>
+            <p className="mt-1 text-2xl font-bold text-blue-600">{totalCount}</p>
+            <p className="mt-0.5 text-[10px] text-gray-400">{selectedRange}일</p>
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs text-gray-500">계약완료</p>
+            <p className="mt-1 text-2xl font-bold text-green-600">{contractCompletedCount}</p>
+            <p className="mt-0.5 text-[10px] text-gray-400">총 계약완료 건수</p>
+          </div>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 p-4">
+            <p className="text-xs text-gray-500">내 전문분야</p>
+            <p className="mt-1 text-2xl font-bold text-amber-600">{myCategories.length}</p>
+            <p className="mt-0.5 text-[10px] text-gray-400">등록 공정 수</p>
+          </div>
         </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">기간 내 신규 의뢰</p>
-          <p className="mt-1 text-2xl font-bold text-blue-600">{totalCount}</p>
-          <p className="mt-0.5 text-[10px] text-gray-400">{selectedRange}일</p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">계약완료</p>
-          <p className="mt-1 text-2xl font-bold text-green-600">{contractCompletedCount}</p>
-          <p className="mt-0.5 text-[10px] text-gray-400">총 계약완료 건수</p>
-        </div>
-        <div className="rounded-2xl border border-gray-200 bg-white p-4 shadow-sm">
-          <p className="text-xs text-gray-500">내 전문분야</p>
-          <p className="mt-1 text-2xl font-bold text-amber-600">{myCategories.length}</p>
-          <p className="mt-0.5 text-[10px] text-gray-400">등록 공정 수</p>
-        </div>
-      </div>
+      </CollapsiblePanel>
 
       {/* 견적의뢰 현황 */}
       {myCategories.length > 0 ? (
-        <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-          {/* 헤더 + 기간 선택 */}
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h2 className="text-sm font-semibold text-gray-800">전문분야별 신규의뢰 현황</h2>
-              <p className="mt-0.5 text-xs text-gray-400">대공정별 신규로 매칭된 의뢰 건수</p>
-            </div>
+        <CollapsiblePanel
+          title="전문분야별 신규의뢰 현황"
+          subtitle="대공정별 신규로 매칭된 의뢰 건수"
+          storageKey="provider-dash-category-stats"
+          headerRight={
             <div className="flex gap-1">
               {([7, 14, 30] as const).map((d) => (
                 <button key={d} type="button" onClick={() => setSelectedRange(d)}
@@ -492,8 +495,8 @@ export default function ProviderDashboardPage() {
                 </button>
               ))}
             </div>
-          </div>
-
+          }
+        >
           {isChartLoading ? (
             <div className="flex items-center justify-center py-16">
               <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-400 border-t-transparent" />
@@ -554,7 +557,7 @@ export default function ProviderDashboardPage() {
               )}
             </>
           )}
-        </div>
+        </CollapsiblePanel>
       ) : (
         <div className="flex items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-16">
           <div className="text-center">
@@ -569,11 +572,13 @@ export default function ProviderDashboardPage() {
 
       {/* 공사금액제안 바로가기 */}
       {estimateWaitingCount > 0 && (
-        <div className="rounded-2xl border border-indigo-200 bg-indigo-50/50 p-6">
-          <h2 className="mb-2 text-sm font-semibold text-indigo-800">견적 제안 요청</h2>
-          <p className="mb-4 text-xs text-indigo-600">
-            {estimateWaitingCount}건의 견적대기 프로젝트가 있습니다. 공사금액을 제안해 주세요.
-          </p>
+        <CollapsiblePanel
+          title="견적 제안 요청"
+          subtitle={`${estimateWaitingCount}건의 견적대기 프로젝트가 있습니다`}
+          storageKey="provider-dash-estimate-cta"
+          className="border-indigo-200 bg-indigo-50/50"
+        >
+          <p className="mb-4 text-xs text-indigo-600">공사금액을 제안해 주세요.</p>
           <Link
             href="/provider/estimates"
             className="inline-flex items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700"
@@ -583,23 +588,23 @@ export default function ProviderDashboardPage() {
               <path d="M5 12h14M12 5l7 7-7 7" />
             </svg>
           </Link>
-        </div>
+        </CollapsiblePanel>
       )}
 
       {/* 일자별 계약완료 금액 & 총 매출 */}
-      <div className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
-        <div className="mb-4 flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-semibold text-gray-800">일자별 계약완료 금액</h2>
-            <p className="mt-0.5 text-xs text-gray-400">최근 30일 기준</p>
-          </div>
+      <CollapsiblePanel
+        title="일자별 계약완료 금액"
+        subtitle="최근 30일 기준"
+        storageKey="provider-dash-daily-sales"
+        headerRight={
           <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2">
             <p className="text-[10px] text-emerald-600">총 매출금액</p>
             <p className="text-lg font-bold tabular-nums text-emerald-700 transition-all duration-300">
               ₩{formatMoney(animatedTotalSales)}
             </p>
           </div>
-        </div>
+        }
+      >
         <div className="h-56 min-h-[180px] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
@@ -629,7 +634,7 @@ export default function ProviderDashboardPage() {
             </BarChart>
           </ResponsiveContainer>
         </div>
-      </div>
+      </CollapsiblePanel>
       </div>
     </div>
   );

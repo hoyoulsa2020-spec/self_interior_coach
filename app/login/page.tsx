@@ -135,7 +135,14 @@ export default function LoginPage() {
         return;
       }
 
-      console.log("로그인 성공");
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session?.access_token) {
+        fetch("/api/access-log/record", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${session.access_token}` },
+          keepalive: true,
+        }).catch(() => {});
+      }
 
       if (rememberMe) {
         localStorage.setItem(STORAGE_KEY, JSON.stringify({ email, password }));
