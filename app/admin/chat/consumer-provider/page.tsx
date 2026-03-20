@@ -8,12 +8,29 @@ import { compressImage } from "@/lib/imageCompress";
 import ChatImageLightbox from "@/components/ChatImageLightbox";
 import AlertModal from "@/components/AlertModal";
 
+function formatScheduleDate(processSchedule: Record<string, unknown> | null, catName: string): string {
+  const raw = processSchedule?.[catName];
+  if (!raw) return "—";
+  const ranges = Array.isArray(raw) ? raw : [raw];
+  if (ranges.length === 0) return "—";
+  const r = ranges[ranges.length - 1] as { start?: string; end?: string };
+  const fmt = (s: string) => {
+    const part = (typeof s === "string" ? s : "").split("T")[0];
+    const [y, m, d] = part.split("-").map(Number);
+    if (isNaN(y) || isNaN(m) || isNaN(d)) return "?";
+    return `${y}.${m}.${d}`;
+  };
+  return `${fmt(r.start ?? "")} ~ ${fmt(r.end ?? "")}`;
+}
+
 type UserItem = {
   user_id: string;
   role: string;
   name: string | null;
   business_name: string | null;
   email: string | null;
+  categoryLabel?: string;
+  projectTitle?: string;
 };
 
 type Thread = {
@@ -60,6 +77,7 @@ export default function AdminConsumerProviderChatPage() {
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
   const [closingThreadId, setClosingThreadId] = useState<string | null>(null);
   const [showCloseConfirm, setShowCloseConfirm] = useState(false);
+  const [expandedUserId, setExpandedUserId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -161,8 +179,37 @@ export default function AdminConsumerProviderChatPage() {
       query = query.or(`name.ilike.${term},business_name.ilike.${term},email.ilike.${term}`);
     }
     const orderCol = role === "provider" ? "business_name" : "name";
-    const { data } = await query.order(orderCol, { nullsFirst: false }).limit(50);
-    setSearchResults((data ?? []) as UserItem[]);
+    const { data: profileData } = await query.order(orderCol, { nullsFirst: false }).limit(50);
+    const list = (profileData ?? []) as UserItem[];
+
+    if (role === "consumer" && list.length > 0) {
+      const consumerIds = list.map((u) => u.user_id);
+      const { data: projectsData } = await supabase.from("projects").select("id, user_id, process_schedule, title").in("user_id", consumerIds);
+      const projectIds = (projectsData ?? []).map((p) => p.id);
+      const projectMap = new Map((projectsData ?? []).map((p) => [p.id, p]));
+      if (projectIds.length > 0) {
+        const { data: assignData } = await supabase.from("project_category_assignments").select("project_id, category").in("project_id", projectIds).eq("match_status", "completed");
+        const byConsumer = new Map<string, { category: string; scheduleStr: string; projectTitle?: string }[]>();
+        for (const a of assignData ?? []) {
+          const proj = projectMap.get(a.project_id);
+          const cid = proj?.user_id;
+          if (!cid) continue;
+          const scheduleStr = proj?.process_schedule ? formatScheduleDate(proj.process_schedule as Record<string, unknown>, a.category) : "—";
+          const projectTitle = (proj as { title?: string })?.title?.trim();
+          const arr = byConsumer.get(cid) ?? [];
+          arr.push({ category: a.category, scheduleStr, projectTitle });
+          byConsumer.set(cid, arr);
+        }
+        for (const u of list) {
+          const contracts = byConsumer.get(u.user_id) ?? [];
+          u.categoryLabel = contracts.map((c) => `${c.category} (${c.scheduleStr})`).join(", ");
+          const titles = [...new Set(contracts.map((c) => c.projectTitle).filter(Boolean))];
+          u.projectTitle = titles.length > 0 ? titles.join(", ") : undefined;
+        }
+      }
+    }
+
+    setSearchResults(list);
     setSearching(false);
   }, []);
 
@@ -379,35 +426,36 @@ export default function AdminConsumerProviderChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-gray-800">회원들에게 채팅하기</h2>
-          <p className="mt-0.5 text-xs text-gray-500">관리자가 먼저 말걸 수 있습니다</p>
+    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+      {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-56 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
+        <div className="shrink-0 border-b border-gray-200 px-3 py-2">
+          <h2 className="text-xs font-semibold text-gray-800">회원들에게 채팅하기</h2>
+          <p className="mt-0.5 text-[10px] text-gray-500">관리자가 먼저 말걸 수 있습니다</p>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="min-h-0 flex-1 overflow-y-auto">
           {/* 진행 중인 대화 */}
-          <div className="border-b border-gray-100">
-            <div className="px-4 py-2 text-xs font-medium text-gray-500">진행 중인 대화</div>
+          <div className="shrink-0 border-b border-gray-100">
+            <div className="px-3 py-1.5 text-[10px] font-medium text-gray-500">진행 중인 대화</div>
             {threadsLoading ? (
-              <div className="px-4 py-2 text-center text-xs text-gray-400">불러오는 중...</div>
+              <div className="px-3 py-1.5 text-center text-[10px] text-gray-400">불러오는 중...</div>
             ) : threads.length === 0 ? (
-              <div className="px-4 py-3 text-xs text-gray-400">진행 중인 대화가 없습니다.</div>
+              <div className="px-3 py-2 text-[10px] text-gray-400">진행 중인 대화가 없습니다.</div>
             ) : (
-              <ul className="max-h-40 overflow-y-auto">
+              <ul className="max-h-32 overflow-y-auto">
                 {threads.map((t) => (
                   <li key={t.id}>
                     <button
                       type="button"
                       onClick={() => selectThread(t)}
-                      className={`relative w-full px-4 py-2.5 text-left text-sm transition ${selectedThread?.id === t.id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}
+                      className={`relative w-full px-3 py-2 text-left text-xs transition ${selectedThread?.id === t.id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}
                     >
-                      <p className="font-medium truncate pr-8">{getThreadLabel(t)}</p>
-                      <p className="mt-0.5 text-xs text-gray-500 truncate">
+                      <p className="font-medium truncate pr-6">{getThreadLabel(t)}</p>
+                      <p className="mt-0.5 text-[10px] text-gray-500 truncate">
                         {new Date(t.updated_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
                       </p>
                       {(t.unreadCount ?? 0) > 0 && (
-                        <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        <span className="absolute right-1.5 top-1/2 -translate-y-1/2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
                           {t.unreadCount! > 99 ? "99+" : t.unreadCount}
                         </span>
                       )}
@@ -418,68 +466,107 @@ export default function AdminConsumerProviderChatPage() {
             )}
           </div>
           {/* 새 대화 시작 */}
-          <div className="border-b border-gray-100">
-            <div className="px-4 py-2 text-xs font-medium text-gray-500">새 대화 시작</div>
-            <div className="flex border-t border-gray-100">
-          <button
-            type="button"
-            onClick={() => { setActiveTab("consumer"); setSearchQuery(""); setSearchResults([]); }}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium transition ${activeTab === "consumer" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
-          >
-            소비자
-          </button>
-          <button
-            type="button"
-            onClick={() => { setActiveTab("provider"); setSearchQuery(""); setSearchResults([]); }}
-            className={`flex-1 px-4 py-2.5 text-sm font-medium transition ${activeTab === "provider" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
-          >
-            시공업체
-          </button>
-        </div>
-        {activeTab && (
-          <>
-            <div className="border-b border-gray-100 p-3">
-              <input
-                type="text"
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={activeTab === "consumer" ? "이름, 이메일 검색" : "업체명, 이름, 이메일 검색"}
-                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500"
-              />
+          <div className="flex min-h-0 flex-1 flex-col">
+            <div className="shrink-0 px-3 py-1.5 text-[10px] font-medium text-gray-500">새 대화 시작</div>
+            <div className="flex shrink-0 border-t border-gray-100">
+              <button
+                type="button"
+                onClick={() => { setActiveTab("consumer"); setSearchQuery(""); setSearchResults([]); }}
+                className={`flex-1 px-3 py-2 text-xs font-medium transition ${activeTab === "consumer" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
+              >
+                소비자
+              </button>
+              <button
+                type="button"
+                onClick={() => { setActiveTab("provider"); setSearchQuery(""); setSearchResults([]); }}
+                className={`flex-1 px-3 py-2 text-xs font-medium transition ${activeTab === "provider" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
+              >
+                시공업체
+              </button>
             </div>
-            <div className="flex-1 overflow-y-auto">
-              {searching ? (
-                <div className="p-4 text-center text-sm text-gray-500">검색 중...</div>
-              ) : searchResults.length === 0 ? (
-                <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-gray-500">
-                  <p>{activeTab === "consumer" ? "소비자" : "시공업체"} 목록을 불러오는 중이거나</p>
-                  <p className="mt-1">검색 결과가 없습니다.</p>
+            {activeTab && (
+              <>
+                <div className="shrink-0 border-b border-gray-100 p-2">
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder={activeTab === "consumer" ? "이름, 이메일 검색" : "업체명, 이름, 이메일 검색"}
+                    className="w-full rounded-lg border border-gray-200 px-2.5 py-1.5 text-xs outline-none focus:border-indigo-500"
+                  />
                 </div>
-              ) : (
-                <ul className="divide-y divide-gray-100">
-                  {searchResults.map((u) => (
-                    <li key={u.user_id}>
-                      <button
-                        type="button"
-                        onClick={() => selectUserAndOpenChat(u)}
-                        className={`w-full px-4 py-3 text-left text-sm transition ${selectedThread?.user_id === u.user_id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}
-                      >
-                        <p className="font-medium">{u.role === "provider" ? (u.business_name || u.name) : u.name}</p>
-                        {u.email && <p className="mt-0.5 text-xs text-gray-500">{u.email}</p>}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-          </>
-        )}
-        {!activeTab && (
-          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-sm text-gray-500">
-            <p>소비자 또는 시공업체를 선택한 후</p>
-            <p className="mt-1">검색하여 대화할 회원을 찾으세요.</p>
-          </div>
-        )}
+                <div className="min-h-0 flex-1 overflow-y-auto">
+                  {searching ? (
+                    <div className="p-3 text-center text-xs text-gray-500">검색 중...</div>
+                  ) : searchResults.length === 0 ? (
+                    <div className="flex flex-col items-center justify-center p-4 text-center text-xs text-gray-500">
+                      <p>{activeTab === "consumer" ? "소비자" : "시공업체"} 목록을 불러오는 중이거나</p>
+                      <p className="mt-1">검색 결과가 없습니다.</p>
+                    </div>
+                  ) : (
+                    <ul className="divide-y divide-gray-200">
+                      {searchResults.map((u) => {
+                        const isExpanded = expandedUserId === u.user_id;
+                        const hasDetail = u.role === "consumer" && u.categoryLabel;
+                        return (
+                          <li key={u.user_id}>
+                            <div className={`rounded px-3 py-2 ${selectedThread?.user_id === u.user_id ? "bg-indigo-50" : ""}`}>
+                              <button
+                                type="button"
+                                onClick={() => selectUserAndOpenChat(u)}
+                                className={`w-full text-left text-xs transition ${selectedThread?.user_id === u.user_id ? "text-indigo-700" : "hover:bg-gray-50"} -m-1 p-1 rounded`}
+                              >
+                                <p className="font-medium truncate">
+                                  {u.role === "provider" ? (u.business_name || u.name) : (u.projectTitle ? `${u.name} - ${u.projectTitle}` : u.name)}
+                                </p>
+                                {u.role === "provider" && u.email && <p className="mt-0.5 truncate text-[10px] text-gray-500">{u.email}</p>}
+                              </button>
+                              {hasDetail && (
+                                <>
+                                  <div className="mt-0.5 hidden md:block">
+                                    <p className="truncate text-[10px] text-gray-500" title={u.categoryLabel}>
+                                      대공정·공정일자: {u.categoryLabel}
+                                    </p>
+                                  </div>
+                                  <div className="mt-0.5 md:hidden">
+                                    {isExpanded ? (
+                                      <>
+                                        <p className="break-words text-[10px] text-gray-500">대공정·공정일자: {u.categoryLabel}</p>
+                                        <button
+                                          type="button"
+                                          onClick={(e) => { e.stopPropagation(); setExpandedUserId(null); }}
+                                          className="mt-0.5 text-[10px] text-gray-500 underline"
+                                        >
+                                          접기
+                                        </button>
+                                      </>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); setExpandedUserId(u.user_id); }}
+                                        className="text-[10px] text-gray-500 underline"
+                                      >
+                                        펼치기
+                                      </button>
+                                    )}
+                                  </div>
+                                </>
+                              )}
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  )}
+                </div>
+              </>
+            )}
+            {!activeTab && (
+              <div className="flex flex-1 flex-col items-center justify-center p-4 text-center text-xs text-gray-500">
+                <p>소비자 또는 시공업체를 선택한 후</p>
+                <p className="mt-1">검색하여 대화할 회원을 찾으세요.</p>
+              </div>
+            )}
           </div>
         </div>
       </div>
@@ -511,7 +598,7 @@ export default function AdminConsumerProviderChatPage() {
                     const urls = (m.image_urls ?? []).filter(Boolean);
                     return (
                       <div key={m.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${isAdmin ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                        <div className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${isAdmin ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
                           {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                           {urls.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">

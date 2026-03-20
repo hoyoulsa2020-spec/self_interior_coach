@@ -93,6 +93,24 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
   const handleResetChat = async () => {
     if (!threadId || resetting) return;
     setResetting(true);
+    const { count } = await supabase
+      .from("admin_chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", threadId);
+    const hasMessages = (count ?? 0) > 0;
+    if (!hasMessages) {
+      const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", threadId);
+      setResetting(false);
+      setShowResetConfirm(false);
+      if (!delError) {
+        setThreadId(null);
+        setMessages([]);
+        await ensureThread();
+      } else {
+        setAlertMessage("채팅 종료에 실패했습니다.");
+      }
+      return;
+    }
     const clearedAt = new Date().toISOString();
     const { error } = await supabase
       .from("admin_chat_threads")
@@ -218,7 +236,7 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
               const urls = (m.image_urls ?? []).filter(Boolean);
               return (
                 <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                  <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                  <div className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[80%] ${isMe ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
                     {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                     {urls.length > 0 && (
                       <div className="mt-1.5 flex flex-wrap gap-1">

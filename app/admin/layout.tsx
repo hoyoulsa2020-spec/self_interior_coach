@@ -430,6 +430,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         >
                           <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
                           프로젝트관리
+                          {pendingCounts.projects > 0 && (
+                            <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                              {pendingCounts.projects > 99 ? "99+" : pendingCounts.projects}
+                            </span>
+                          )}
                         </Link>
                       </li>
                       <li>

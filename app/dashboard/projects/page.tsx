@@ -274,6 +274,17 @@ export default function ProjectsPage() {
         status: "publish_requested",
         publish_requested_at: new Date().toISOString(),
       }).eq("id", projectId).eq("user_id", userId);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.access_token) {
+          await fetch("/api/push/project-publish", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+          });
+        }
+      } catch {
+        /* ignore push failure */
+      }
     } else {
       await supabase.from("projects").update({
         status: "pending",
@@ -1020,6 +1031,18 @@ function ProviderDetailModal({
       console.error("고민해보기 오류:", error.message);
       return;
     }
+    try {
+      const { data } = await supabase.auth.getSession();
+      if (data?.session?.access_token) {
+        await fetch("/api/push/bidder-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+          body: JSON.stringify({ providerId, status: "in_progress" }),
+        });
+      }
+    } catch {
+      /* ignore push failure */
+    }
     onDealStart(true);
   };
 
@@ -1129,6 +1152,18 @@ function ProviderDetailModal({
                     .eq("project_id", projectId)
                     .eq("category", category)
                     .eq("provider_id", providerId);
+                  try {
+                    const { data } = await supabase.auth.getSession();
+                    if (data?.session?.access_token) {
+                      await fetch("/api/push/bidder-status", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+                        body: JSON.stringify({ providerId, status: "completed" }),
+                      });
+                    }
+                  } catch {
+                    /* ignore push failure */
+                  }
                   setIsSubmitting(false);
                   onDealStart(false);
                 }}

@@ -43,7 +43,7 @@ const NAV_ITEMS: NavItem[] = [
       </svg>
     ),
     children: [
-      { label: "견적대기", href: "/provider/estimates" },
+      { label: "견적대기", href: "/provider/estimates", badgeKey: "estimateWaiting" },
       { label: "계약완료", href: "/provider/estimates/completed" },
       { label: "매칭실패", href: "/provider/estimates/failed" },
     ],
@@ -544,7 +544,8 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                         {item.children.map((child) => {
                           const isActive = pathname === child.href;
                           const childBadge = child.badgeKey === "chatUnread" ? chatUnreadCount
-                            : child.badgeKey === "consumerChatUnread" ? consumerChatUnreadCount : 0;
+                            : child.badgeKey === "consumerChatUnread" ? consumerChatUnreadCount
+                            : child.badgeKey === "estimateWaiting" ? estimateWaitingCount : 0;
                           return (
                             <li key={child.href}>
                               <Link

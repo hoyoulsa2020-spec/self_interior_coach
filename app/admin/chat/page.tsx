@@ -348,9 +348,9 @@ export default function AdminChatPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
-      {/* 스레드 목록 */}
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+      {/* 스레드 목록 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-800">채팅 목록</h2>
           <p className="mt-0.5 text-xs text-gray-500">소비자·공급업체와 1:1 채팅</p>
@@ -390,16 +390,26 @@ export default function AdminChatPage() {
         </div>
       </div>
 
-      {/* 채팅 영역 */}
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
         {selectedThread ? (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h3 className="text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setSelectedThread(null)}
+                className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                aria-label="목록으로"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
               <button
                 type="button"
                 onClick={() => setShowCloseConfirm(true)}
-                className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 transition hover:bg-amber-50"
+                className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 transition hover:bg-amber-50"
                 title="채팅 종료"
               >
                 채팅 종료
@@ -420,7 +430,7 @@ export default function AdminChatPage() {
                   return (
                     <div key={m.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
                       <div
-                        className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                        className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${
                           isAdmin ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
                         }`}
                       >

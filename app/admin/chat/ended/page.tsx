@@ -152,8 +152,9 @@ export default function AdminChatEndedPage() {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+      {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-800">종료된 채팅</h2>
           <p className="mt-0.5 text-xs text-gray-500">사용자 초기화 또는 관리자 종료된 채팅 로그</p>
@@ -186,19 +187,30 @@ export default function AdminChatEndedPage() {
         </div>
       </div>
 
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
         {selectedThread ? (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-              <div>
-                <h3 className="text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
-                <p className="text-xs text-gray-500">{getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}</p>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setSelectedThread(null)}
+                className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                aria-label="목록으로"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <div className="min-w-0 flex-1">
+                <h3 className="truncate text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
+                <p className="truncate text-xs text-gray-500">{getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}</p>
               </div>
               {userRole === "super_admin" && (
                 <button
                   type="button"
                   onClick={() => { setDeletePassword(""); setDeletePasswordError(null); setShowDeleteConfirm(true); }}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                  className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
                   title="채팅 완전 삭제"
                 >
                   완전 삭제
@@ -220,7 +232,7 @@ export default function AdminChatEndedPage() {
                     return (
                       <div key={m.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
                         <div
-                          className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${
+                          className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[75%] ${
                             isAdmin ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
                           }`}
                         >

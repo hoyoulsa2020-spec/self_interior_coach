@@ -54,6 +54,7 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showEndedMessage, setShowEndedMessage] = useState(false);
   const [resetting, setResetting] = useState(false);
+  const [expandedPartnerId, setExpandedPartnerId] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -192,6 +193,25 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
   const handleResetChat = async () => {
     if (!threadId || resetting) return;
     setResetting(true);
+    if (userRole === "consumer") {
+      const { count } = await supabase
+        .from("consumer_provider_chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("thread_id", threadId);
+      const hasMessages = (count ?? 0) > 0;
+      if (!hasMessages) {
+        const { error: delError } = await supabase.from("consumer_provider_chat_threads").delete().eq("id", threadId);
+        setResetting(false);
+        setShowResetConfirm(false);
+        if (!delError) {
+          setSelectedPartnerId(null);
+          setThreadId(null);
+        } else {
+          setAlertMessage("채팅 종료에 실패했습니다.");
+        }
+        return;
+      }
+    }
     const clearedAt = new Date().toISOString();
     const updates: Record<string, unknown> = { ended_at: clearedAt, ended_by: userRole, ...(userRole === "consumer" ? { consumer_cleared_at: clearedAt } : { provider_cleared_at: clearedAt }) };
     const { error } = await supabase.from("consumer_provider_chat_threads").update(updates).eq("id", threadId);
@@ -272,41 +292,94 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
-        <div className="border-b border-gray-200 px-4 py-3">
+    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+      {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:shrink-0 ${userRole === "provider" ? "md:w-48" : "md:w-72"} ${selectedPartnerId ? "hidden md:flex" : "flex"}`}>
+        <div className={`border-b border-gray-200 px-3 ${userRole === "provider" ? "py-2" : "px-4 py-3"}`}>
           <h2 className="text-sm font-semibold text-gray-800">{userRole === "consumer" ? "업체" : "소비자"} 선택</h2>
         </div>
         <div className="flex-1 overflow-y-auto">
           {partnersLoading ? (
-            <div className="p-4 text-center text-sm text-gray-500">불러오는 중...</div>
+            <div className={userRole === "provider" ? "p-3 text-center text-xs text-gray-500" : "p-4 text-center text-sm text-gray-500"}>불러오는 중...</div>
           ) : (
-            <ul className="divide-y divide-gray-100">
-              {partners.map((p) => (
-                <li key={p.id}>
-                  <button type="button" onClick={() => setSelectedPartnerId(p.id)} className={`w-full px-4 py-3 text-left text-sm ${selectedPartnerId === p.id ? "bg-emerald-50 text-emerald-700" : "hover:bg-gray-50"}`}>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-medium">{userRole === "provider" && p.projectTitle ? `${p.displayName} - ${p.projectTitle}` : p.displayName}</span>
-                      {(partnerUnreadCounts[p.id] ?? 0) > 0 && (
-                        <span className="inline-flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
-                          {partnerUnreadCounts[p.id]! > 99 ? "99+" : partnerUnreadCounts[p.id]}
-                        </span>
+            <ul className="divide-y divide-gray-200">
+              {partners.map((p) => {
+                const isExpanded = expandedPartnerId === p.id;
+                const hasDetail = userRole === "provider" && p.categoryLabel;
+                return (
+                  <li key={p.id}>
+                    <div className={`rounded ${userRole === "provider" ? "px-3 py-2.5" : "px-4 py-3"} ${selectedPartnerId === p.id ? "bg-emerald-50" : ""}`}>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedPartnerId(p.id)}
+                        className={`w-full text-left ${selectedPartnerId === p.id ? "text-emerald-700" : "hover:bg-gray-50"} -m-1 p-1 rounded ${userRole === "provider" ? "text-xs" : "text-sm"}`}
+                      >
+                        <div className="flex min-w-0 items-center gap-1.5">
+                          <span className="truncate font-medium">{userRole === "provider" && p.projectTitle ? `${p.displayName} - ${p.projectTitle}` : p.displayName}</span>
+                          {(partnerUnreadCounts[p.id] ?? 0) > 0 && (
+                            <span className="shrink-0 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-0.5 text-[9px] font-bold text-white">
+                              {partnerUnreadCounts[p.id]! > 99 ? "99+" : partnerUnreadCounts[p.id]}
+                            </span>
+                          )}
+                        </div>
+                        {userRole === "consumer" && p.categoryLabel && <p className="mt-1 truncate text-xs text-gray-500">{p.categoryLabel}</p>}
+                      </button>
+                      {hasDetail && (
+                        <>
+                          <div className="mt-1 hidden md:block">
+                            <p className="truncate text-[10px] text-gray-500" title={p.categoryLabel}>
+                              {p.projectTitle ? `${p.projectTitle} · ` : ""}{p.categoryLabel}
+                            </p>
+                          </div>
+                          <div className="mt-1 md:hidden">
+                            {isExpanded ? (
+                              <>
+                                <p className="break-words text-[10px] text-gray-500">{p.projectTitle ? `${p.projectTitle} · ` : ""}{p.categoryLabel}</p>
+                                <button
+                                  type="button"
+                                  onClick={(e) => { e.stopPropagation(); setExpandedPartnerId(null); }}
+                                  className="mt-0.5 text-[10px] text-gray-500 underline"
+                                >
+                                  접기
+                                </button>
+                              </>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => { e.stopPropagation(); setExpandedPartnerId(p.id); }}
+                                className="text-[10px] text-gray-500 underline"
+                              >
+                                펼치기
+                              </button>
+                            )}
+                          </div>
+                        </>
                       )}
                     </div>
-                    {p.categoryLabel && <p className="mt-1 text-xs text-gray-500">{p.categoryLabel}</p>}
-                  </button>
-                </li>
-              ))}
+                  </li>
+                );
+              })}
             </ul>
           )}
         </div>
       </div>
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedPartnerId ? "flex" : "hidden md:flex"}`}>
         {selectedPartner ? (
           <>
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-              <h3 className="text-base font-semibold text-gray-800">{userRole === "provider" && selectedPartner.projectTitle ? `${selectedPartner.displayName} - ${selectedPartner.projectTitle}` : selectedPartner.displayName}</h3>
-              <button type="button" onClick={() => setShowResetConfirm(true)} className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50">{userRole === "consumer" ? "채팅 종료" : "채팅 초기화"}</button>
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => { setSelectedPartnerId(null); setThreadId(null); }}
+                className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                aria-label="목록으로"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-800">{userRole === "provider" && selectedPartner.projectTitle ? `${selectedPartner.displayName} - ${selectedPartner.projectTitle}` : selectedPartner.displayName}</h3>
+              <button type="button" onClick={() => setShowResetConfirm(true)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50">{userRole === "consumer" ? "채팅 종료" : "채팅 초기화"}</button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loading ? <div className="flex justify-center py-8 text-sm text-gray-500">메시지 불러오는 중...</div> : messages.length === 0 ? (
@@ -318,7 +391,7 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
                     const urls = (m.image_urls ?? []).filter(Boolean);
                     return (
                       <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                        <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                        <div className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[80%] ${isMe ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800"}`}>
                           {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                           {urls.length > 0 && (
                             <div className="mt-1.5 flex flex-wrap gap-1">

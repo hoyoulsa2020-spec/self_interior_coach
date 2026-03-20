@@ -14,6 +14,7 @@ type Project = {
   id: string;
   title: string;
   status: string;
+  user_id?: string | null;
   assigned_provider_id: string | null;
   contact_name: string | null;
   contact_phone: string | null;
@@ -272,7 +273,7 @@ export default function ProviderEstimatesPage() {
 
     const { data: projData, error: projError } = await supabase
       .from("projects")
-      .select("id, title, status, assigned_provider_id, contact_name, contact_phone, contact_email, site_address1, site_address2, category, work_tree, work_details, start_date, move_in_date, supply_area_m2, exclusive_area_m2, is_expanded, process_schedule, created_at")
+      .select("id, title, status, user_id, assigned_provider_id, contact_name, contact_phone, contact_email, site_address1, site_address2, category, work_tree, work_details, start_date, move_in_date, supply_area_m2, exclusive_area_m2, is_expanded, process_schedule, created_at")
       .in("status", ["estimate_waiting", "active"])
       .order("created_at", { ascending: false });
 
@@ -308,7 +309,7 @@ export default function ProviderEstimatesPage() {
       if (idsNotInMatched.length > 0) {
         const { data: extraData } = await supabase
           .from("projects")
-          .select("id, title, status, assigned_provider_id, contact_name, contact_phone, contact_email, site_address1, site_address2, category, work_tree, work_details, start_date, move_in_date, supply_area_m2, exclusive_area_m2, is_expanded, process_schedule, created_at")
+          .select("id, title, status, user_id, assigned_provider_id, contact_name, contact_phone, contact_email, site_address1, site_address2, category, work_tree, work_details, start_date, move_in_date, supply_area_m2, exclusive_area_m2, is_expanded, process_schedule, created_at")
           .in("id", idsNotInMatched);
         extra = (extraData ?? []) as Project[];
       }
@@ -450,6 +451,23 @@ export default function ProviderEstimatesPage() {
     if (error) {
       setAlertMessage({ message: `저장 실패: ${error.message}`, variant: "error" });
       return;
+    }
+    const categoriesToNotify = bidModal.category ? [bidModal.category] : Object.keys(mergedAmounts).filter((k) => mergedAmounts[k] != null);
+    if (categoriesToNotify.length > 0 && proj.user_id) {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.access_token) {
+          for (const cat of categoriesToNotify) {
+            await fetch("/api/push/estimate-submitted", {
+              method: "POST",
+              headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+              body: JSON.stringify({ projectId: proj.id, category: cat, consumerId: proj.user_id }),
+            });
+          }
+        }
+      } catch {
+        /* ignore push failure */
+      }
     }
     setBidModal(null);
     setAlertMessage({ message: "견적이 저장되었습니다.", variant: "info" });

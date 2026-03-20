@@ -152,6 +152,18 @@ export default function AdminProjectsPage() {
         const requestedAt = new Date(p.publish_requested_at).getTime();
         if (now - requestedAt >= ONE_HOUR_MS) {
           await supabase.from("projects").update({ status: "estimate_waiting" }).eq("id", p.id);
+          try {
+            const { data } = await supabase.auth.getSession();
+            if (data?.session?.access_token) {
+              await fetch("/api/push/estimate-waiting", {
+                method: "POST",
+                headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+                body: JSON.stringify({ projectId: p.id }),
+              });
+            }
+          } catch {
+            /* ignore push failure */
+          }
         }
       }
     }
@@ -202,6 +214,20 @@ export default function AdminProjectsPage() {
   const handleStatusChange = async (projectId: string, newStatus: string) => {
     setSavingStatus(true);
     await supabase.from("projects").update({ status: newStatus }).eq("id", projectId);
+    if (newStatus === "estimate_waiting") {
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.access_token) {
+          await fetch("/api/push/estimate-waiting", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+            body: JSON.stringify({ projectId }),
+          });
+        }
+      } catch {
+        /* ignore push failure */
+      }
+    }
     setSavingStatus(false);
     if (selected?.id === projectId) setSelected((prev) => prev ? { ...prev, status: newStatus } : prev);
     fetchProjects(currentPage, appliedSearch, statusFilter);

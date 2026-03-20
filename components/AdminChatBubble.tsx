@@ -84,6 +84,27 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
   const handleResetChat = async () => {
     if (!threadId || resetting) return;
     setResetting(true);
+    if (userRole === "consumer") {
+      const { count } = await supabase
+        .from("admin_chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("thread_id", threadId);
+      const hasMessages = (count ?? 0) > 0;
+      if (!hasMessages) {
+        const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", threadId);
+        setResetting(false);
+        setShowResetConfirm(false);
+        if (!delError) {
+          setThreadId(null);
+          setMessages([]);
+          setOpen(false);
+          await ensureThread();
+        } else {
+          setAlertMessage("채팅 종료에 실패했습니다.");
+        }
+        return;
+      }
+    }
     const clearedAt = new Date().toISOString();
     const { error } = await supabase
       .from("admin_chat_threads")
@@ -274,7 +295,7 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`fixed right-6 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-700 active:scale-95 ${isChatPage(pathname ?? "") ? "bottom-40" : "bottom-3"}`}
+        className={`fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-700 active:scale-95 sm:right-6 ${isChatPage(pathname ?? "") ? "bottom-24 sm:bottom-40" : "bottom-4 sm:bottom-6"}`}
         aria-label="셀인코치에 문의하기"
       >
         {unreadCount > 0 && (
@@ -292,7 +313,7 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
         <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
           <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className="relative z-10 flex h-[85vh] w-full max-w-md flex-col rounded-t-2xl bg-white shadow-xl sm:h-[500px] sm:rounded-2xl"
+            className="relative z-10 flex w-full max-w-md flex-col bg-white shadow-xl rounded-t-2xl sm:rounded-2xl h-[85dvh] max-h-[85dvh] sm:h-[500px] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
@@ -336,7 +357,7 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
                     return (
                       <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
                         <div
-                          className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${
+                          className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[80%] ${
                             isMe ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"
                           }`}
                         >
@@ -350,10 +371,10 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
                                   key={url}
                                   type="button"
                                   onClick={() => setLightbox({ urls, index: i })}
-                                  className="overflow-hidden rounded-lg border border-white/20"
+                                  className="overflow-hidden rounded-lg border border-white/20 touch-manipulation"
                                 >
                                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={url} alt="" className="h-14 w-14 object-cover" />
+                                  <img src={url} alt="" className="h-12 w-12 sm:h-14 sm:w-14 object-cover" />
                                 </button>
                               ))}
                             </div>
@@ -375,7 +396,7 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
               )}
             </div>
 
-            <div className="shrink-0 border-t border-gray-200 p-3">
+            <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
               {pendingImages.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {pendingImages.map((f, i) => (

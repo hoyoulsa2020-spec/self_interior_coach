@@ -69,8 +69,9 @@ export default function ConsumerProviderChatEndedPage({ userRole, userId }: Prop
   const getEndedByLabel = (t: Thread) => (t.ended_by === userRole ? "본인 초기화" : "상대방 초기화");
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4">
-      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+      {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-800">종료된 채팅</h2>
         </div>
@@ -91,17 +92,31 @@ export default function ConsumerProviderChatEndedPage({ userRole, userId }: Prop
           )}
         </div>
       </div>
-      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+      {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
+      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
         {selectedThread ? (
-          <div className="flex-1 overflow-y-auto p-4">
-            <p className="mb-4 text-xs text-gray-500">{getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}</p>
-            <div className="space-y-3">
+          <>
+            <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-3">
+              <button
+                type="button"
+                onClick={() => setSelectedThread(null)}
+                className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                aria-label="목록으로"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <polyline points="15 18 9 12 15 6" />
+                </svg>
+              </button>
+              <p className="min-w-0 flex-1 truncate text-xs text-gray-500">{getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}</p>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              <div className="space-y-3">
               {messages.map((m) => {
                 const isMe = m.sender_role === userRole;
                 const urls = (m.image_urls ?? []).filter(Boolean);
                 return (
                   <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                    <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                    <div className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[80%] ${isMe ? "bg-emerald-600 text-white" : "bg-gray-100 text-gray-800"}`}>
                       {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                       {urls.length > 0 && (
                         <div className="mt-1.5 flex flex-wrap gap-1">
@@ -118,8 +133,9 @@ export default function ConsumerProviderChatEndedPage({ userRole, userId }: Prop
                   </div>
                 );
               })}
+              </div>
             </div>
-          </div>
+          </>
         ) : (
           <div className="flex flex-1 flex-col items-center justify-center text-gray-500">
             <p className="text-sm">종료된 채팅을 선택하세요</p>

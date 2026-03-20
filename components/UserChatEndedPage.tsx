@@ -75,8 +75,9 @@ export default function UserChatEndedPage({ userRole, userId }: UserChatEndedPag
       defaultCollapsed={true}
       storageKey={userRole === "provider" ? "provider-admin-chat-ended" : "consumer-admin-chat-ended"}
     >
-      <div className="flex min-h-[320px] gap-4">
-        <div className="flex w-56 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50">
+      <div className="flex min-h-[320px] gap-4 overflow-hidden">
+        {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
+        <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-gray-50 md:w-56 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
           <div className="border-b border-gray-200 px-3 py-2">
             <h3 className="text-xs font-semibold text-gray-600">채팅 목록</h3>
           </div>
@@ -105,11 +106,22 @@ export default function UserChatEndedPage({ userRole, userId }: UserChatEndedPag
             )}
           </div>
         </div>
-        <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
+        <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
           {selectedThread ? (
             <div className="flex flex-1 flex-col overflow-hidden">
-              <div className="shrink-0 border-b border-gray-200 px-4 py-2">
-                <p className="text-xs text-gray-500">
+              <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedThread(null)}
+                  className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                  aria-label="목록으로"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                    <polyline points="15 18 9 12 15 6" />
+                  </svg>
+                </button>
+                <p className="min-w-0 flex-1 truncate text-xs text-gray-500">
                   {getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}
                 </p>
               </div>
@@ -123,7 +135,7 @@ export default function UserChatEndedPage({ userRole, userId }: UserChatEndedPag
                       const urls = (m.image_urls ?? []).filter(Boolean);
                       return (
                         <div key={m.id} className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
-                          <div className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm ${isMe ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                          <div className={`max-w-[90%] min-w-0 rounded-2xl px-4 py-2.5 text-sm sm:max-w-[80%] ${isMe ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
                             {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
                             {urls.length > 0 && (
                               <div className="mt-1.5 flex flex-wrap gap-1">
