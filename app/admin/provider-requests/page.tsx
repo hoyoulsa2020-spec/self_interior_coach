@@ -170,8 +170,8 @@ export default function ProviderRequestsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">업체상담요청 관리</h1>
-        <p className="mt-0.5 text-sm text-gray-500">공급업체의 문의 내역을 확인하고 답변합니다.</p>
+        <h1 className="text-xl font-semibold text-gray-800">시공업체상담요청 관리</h1>
+        <p className="mt-0.5 text-sm text-gray-500">시공업체의 문의 내역을 확인하고 답변합니다.</p>
       </div>
 
       {/* 검색 + 필터 */}
@@ -206,8 +206,37 @@ export default function ProviderRequestsPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* 모바일: 간략 카드 */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : inquiries.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">
+            {appliedSearch ? "검색 결과가 없습니다." : "문의 내역이 없습니다."}
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {inquiries.map((inq) => (
+              <li key={inq.id} className="cursor-pointer px-4 py-3 active:bg-gray-50" onClick={() => openDetail(inq)}>
+                <span className={`inline-block rounded-full px-2 py-0.5 text-[11px] font-medium ${inq.status === "answered" ? "bg-blue-50 text-blue-700" : "bg-yellow-50 text-yellow-700"}`}>
+                  {inq.status === "answered" ? "답변완료" : "답변대기"}
+                </span>
+                <p className="mt-1 truncate font-medium text-gray-800">{inq.title}</p>
+                <p className="mt-0.5 text-xs text-gray-500">{inq.profiles?.business_name || inq.profiles?.name || "—"}</p>
+                <button type="button" onClick={(e) => { e.stopPropagation(); openDetail(inq); }}
+                  className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600">
+                  {inq.status === "answered" ? "수정" : "답변하기"}
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+      </div>
+
+      {/* 데스크톱: 테이블 */}
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />

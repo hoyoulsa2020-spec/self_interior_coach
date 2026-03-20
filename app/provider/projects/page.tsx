@@ -12,6 +12,8 @@ type ProjectWithMeta = {
   user_id: string;
   contact_name: string | null;
   contact_phone: string | null;
+  site_address1: string | null;
+  site_address2: string | null;
   work_tree: WorkTreeItem[] | null;
   work_details: Record<string, { subs?: string[] }> | null;
   process_schedule: Record<string, unknown> | null;
@@ -29,6 +31,7 @@ type CompletedRow = {
   consumerName: string;
   consumerPhone: string;
   consumerId: string;
+  siteAddress: string;
 };
 
 const DAY_LABELS = ["일", "월", "화", "수", "목", "금", "토"];
@@ -155,7 +158,7 @@ export default function ProviderProjectsPage() {
 
       const { data: projectsData } = await supabase
         .from("projects")
-        .select("id, title, user_id, contact_name, contact_phone, work_tree, work_details, process_schedule")
+        .select("id, title, user_id, contact_name, contact_phone, site_address1, site_address2, work_tree, work_details, process_schedule")
         .in("id", projectIds);
 
       const projectMap = new Map((projectsData ?? []).map((p) => [p.id, p as ProjectWithMeta]));
@@ -191,6 +194,7 @@ export default function ProviderProjectsPage() {
         const scheduleStr = formatScheduleDate(project.process_schedule, row.category);
         const subs = getSubs(project, row.category);
 
+        const siteAddress = [project.site_address1, project.site_address2].filter(Boolean).join(" ") || "";
         result.push({
           projectId: project.id,
           projectTitle: project.title || "프로젝트",
@@ -201,6 +205,7 @@ export default function ProviderProjectsPage() {
           consumerName,
           consumerPhone,
           consumerId: project.user_id || "",
+          siteAddress,
         });
       }
 
@@ -348,38 +353,64 @@ export default function ProviderProjectsPage() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[500px]">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">프로젝트</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">대공정</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">공정일자</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">고객성함</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">전화번호</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredRows.map((row, idx) => (
-                  <tr
-                    key={`${row.projectId}-${row.category}-${idx}`}
-                    onClick={() => openModal(row)}
-                    className="cursor-pointer transition hover:bg-indigo-50"
-                  >
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.projectTitle}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{row.category}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{row.scheduleStr}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{row.consumerName}</td>
-                    <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
-                      <PhoneLink phone={row.consumerPhone} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          {/* 모바일: 간략 카드 */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden">
+            <ul className="divide-y divide-gray-100">
+              {filteredRows.map((row, idx) => (
+                <li
+                  key={`${row.projectId}-${row.category}-${idx}`}
+                  onClick={() => openModal(row)}
+                  className="cursor-pointer px-4 py-3 active:bg-indigo-50"
+                >
+                  <p className="font-medium text-gray-800">{row.projectTitle}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-indigo-600">{row.category}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{row.consumerName} · {row.scheduleStr}</p>
+                  {row.siteAddress && <p className="mt-0.5 truncate text-[11px] text-gray-600">{row.siteAddress}</p>}
+                  <div className="mt-2" onClick={(e) => e.stopPropagation()}>
+                    <PhoneLink phone={row.consumerPhone} />
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+
+          {/* 데스크톱: 테이블 */}
+          <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[500px]">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">프로젝트</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">대공정</th>
+                    <th className="hidden px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500 sm:table-cell">현장주소</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">공정일자</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">고객성함</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">전화번호</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((row, idx) => (
+                    <tr
+                      key={`${row.projectId}-${row.category}-${idx}`}
+                      onClick={() => openModal(row)}
+                      className="cursor-pointer transition hover:bg-indigo-50"
+                    >
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.projectTitle}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{row.category}</td>
+                      <td className="hidden px-4 py-3 text-sm text-gray-600 max-w-[180px] truncate sm:table-cell">{row.siteAddress || "—"}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{row.scheduleStr}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{row.consumerName}</td>
+                      <td className="px-4 py-3" onClick={(e) => e.stopPropagation()}>
+                        <PhoneLink phone={row.consumerPhone} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
 
       {modalRow && (
@@ -393,6 +424,7 @@ export default function ProviderProjectsPage() {
                 <div>
                   <h3 className="text-base font-semibold text-gray-800">{modalRow.projectTitle}</h3>
                   <p className="mt-0.5 text-sm font-medium text-indigo-600">{modalRow.category}</p>
+                  {modalRow.siteAddress && <p className="mt-1 text-xs text-gray-600">{modalRow.siteAddress}</p>}
                 </div>
                 <button type="button" onClick={() => setModalRow(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

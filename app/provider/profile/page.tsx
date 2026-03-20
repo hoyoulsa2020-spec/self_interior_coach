@@ -3,6 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import PushNotificationToggle from "@/app/components/PushNotificationToggle";
+import AddressSearchLayer from "@/components/AddressSearchLayer";
 
 type Profile = {
   user_id: string;
@@ -86,6 +87,7 @@ export default function ProviderProfilePage() {
 
   // 사업자등록증 업로드
   const [licenseFile, setLicenseFile] = useState<File | null>(null);
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
   const licenseInputRef = useRef<HTMLInputElement>(null);
   const initializedRef = useRef(false);
 
@@ -112,13 +114,6 @@ export default function ProviderProfilePage() {
       setIsLoading(false);
     };
     init();
-
-    // 다음 주소 스크립트 로드
-    if (!document.querySelector('script[src*="postcode.v2.js"]')) {
-      const s = document.createElement("script");
-      s.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      document.head.appendChild(s);
-    }
   }, []);
 
   const startEdit = () => {
@@ -140,14 +135,7 @@ export default function ProviderProfilePage() {
     setIsEditing(true);
   };
 
-  const openPostcode = () => {
-    if (!window.daum?.Postcode) return;
-    new window.daum.Postcode({
-      oncomplete: (data) => {
-        setForm((f) => ({ ...f, address1: data.roadAddress || data.jibunAddress || "", address2: "" }));
-      },
-    }).open();
-  };
+  const openPostcode = () => setShowAddressSearch(true);
 
   const toggleCategory = (cat: string) => {
     setForm((f) => ({
@@ -235,6 +223,7 @@ export default function ProviderProfilePage() {
   const zones = toArray(profile.work_zone);
 
   return (
+    <>
     <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
@@ -500,6 +489,12 @@ export default function ProviderProfilePage() {
         </div>
       )}
     </div>
+    <AddressSearchLayer
+      open={showAddressSearch}
+      onSelect={(addr) => setForm((f) => ({ ...f, address1: addr, address2: "" }))}
+      onClose={() => setShowAddressSearch(false)}
+    />
+    </>
   );
 }
 

@@ -281,7 +281,7 @@ export default function ProvidersPage() {
     <div className="space-y-5">
       <div>
         <h1 className="text-xl font-semibold text-gray-800">
-          공급업체관리
+          시공업체관리
           {categoryFilter && (
             <span className="ml-2 inline-flex items-center rounded-full bg-indigo-100 px-2.5 py-0.5 text-sm font-medium text-indigo-700">
               {categoryFilter}
@@ -358,7 +358,7 @@ export default function ProvidersPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
+      {/* 테이블 (리스트에서 바로 활성화 토글 가능) */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">

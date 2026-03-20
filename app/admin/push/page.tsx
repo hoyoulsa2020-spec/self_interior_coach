@@ -390,76 +390,103 @@ export default function AdminPushPage() {
             ) : logs.length === 0 ? (
               <div className="py-8 text-center text-sm text-gray-500">발송 이력이 없습니다.</div>
             ) : (
-              <div className="max-h-96 overflow-y-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="sticky top-0 bg-gray-50">
-                    <tr>
-                      <th className="w-8 px-2 py-2" />
-                      <th className="px-3 py-2 font-medium text-gray-600">발송 시각</th>
-                      <th className="px-3 py-2 font-medium text-gray-600">유형</th>
-                      <th className="px-3 py-2 font-medium text-gray-600">수신자</th>
-                      <th className="px-3 py-2 font-medium text-gray-600">제목</th>
-                      <th className="px-3 py-2 font-medium text-gray-600">내용</th>
-                      <th className="px-3 py-2 font-medium text-gray-600">결과</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              <>
+                {/* 모바일: 간략 카드 목록 */}
+                <div className="max-h-96 overflow-y-auto md:hidden">
+                  <ul className="space-y-2">
                     {logs.map((row) => (
-                      <React.Fragment key={row.id}>
-                        <tr
-                          className={`cursor-pointer border-t border-gray-100 transition ${expandedRowId === row.id ? "bg-gray-50" : "hover:bg-gray-50/50"}`}
-                          onClick={() => setExpandedRowId((id) => (id === row.id ? null : row.id))}
-                        >
-                          <td className="px-2 py-2">
-                            <span className="inline-block text-gray-400">
-                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${expandedRowId === row.id ? "rotate-90" : ""}`}>
-                                <polyline points="9 18 15 12 9 6" />
-                              </svg>
-                            </span>
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">
-                            {new Date(row.created_at).toLocaleString("ko-KR", {
-                              month: "numeric",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
-                          </td>
-                          <td className="px-3 py-2 text-gray-600">{SOURCE_LABELS[row.source] ?? row.source}</td>
-                          <td className="px-3 py-2">
-                            <span className="font-medium text-gray-800">{row.recipient_name}</span>
-                            {row.recipient_email && row.recipient_email !== "—" && (
-                              <span className="ml-1 block text-xs text-gray-500">{row.recipient_email}</span>
-                            )}
-                          </td>
-                          <td className="px-3 py-2 text-gray-700">{row.title}</td>
-                          <td className="max-w-[200px] truncate px-3 py-2 text-gray-600" title={row.body ?? ""}>
-                            {row.body || "—"}
-                          </td>
-                          <td className="px-3 py-2">
-                            <span className={row.status === "success" ? "text-green-600" : "text-red-600"}>
-                              {row.status === "success" ? "성공" : "실패"}
-                            </span>
-                          </td>
-                        </tr>
-                        {expandedRowId === row.id && (
-                          <tr className="border-t-0 bg-gray-50/80">
-                            <td colSpan={7} className="px-4 py-3">
-                              <div className="space-y-1 text-xs">
-                                <p><span className="font-medium text-gray-600">제목:</span> {row.title}</p>
-                                <p><span className="font-medium text-gray-600">내용:</span> {row.body || "—"}</p>
-                                <p><span className="font-medium text-gray-600">URL:</span> {row.url || "—"}</p>
-                                <p><span className="font-medium text-gray-600">태그:</span> {row.tag || "—"}</p>
-                                <p><span className="font-medium text-gray-600">유형(source):</span> {row.source}</p>
-                              </div>
+                      <li
+                        key={row.id}
+                        className={`rounded-lg border border-gray-100 px-3 py-2.5 text-xs ${row.status === "success" ? "bg-white" : "bg-red-50/50"}`}
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <span className="text-gray-500">
+                            {new Date(row.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </span>
+                          <span className={row.status === "success" ? "text-green-600 font-medium" : "text-red-600 font-medium"}>
+                            {row.status === "success" ? "성공" : "실패"}
+                          </span>
+                        </div>
+                        <p className="mt-0.5 truncate font-medium text-gray-800">{row.recipient_name}</p>
+                        <p className="mt-0.5 truncate text-gray-600">{(row.title || row.body || "—").slice(0, 30)}{(row.title || row.body || "").length > 30 ? "…" : ""}</p>
+                        <p className="mt-0.5 text-gray-400">{SOURCE_LABELS[row.source] ?? row.source}</p>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                {/* 데스크톱: 전체 테이블 */}
+                <div className="max-h-96 overflow-y-auto hidden md:block">
+                  <table className="w-full text-left text-sm">
+                    <thead className="sticky top-0 bg-gray-50">
+                      <tr>
+                        <th className="w-8 px-2 py-2" />
+                        <th className="px-3 py-2 font-medium text-gray-600">발송 시각</th>
+                        <th className="px-3 py-2 font-medium text-gray-600">유형</th>
+                        <th className="px-3 py-2 font-medium text-gray-600">수신자</th>
+                        <th className="px-3 py-2 font-medium text-gray-600">제목</th>
+                        <th className="px-3 py-2 font-medium text-gray-600">내용</th>
+                        <th className="px-3 py-2 font-medium text-gray-600">결과</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {logs.map((row) => (
+                        <React.Fragment key={row.id}>
+                          <tr
+                            className={`cursor-pointer border-t border-gray-100 transition ${expandedRowId === row.id ? "bg-gray-50" : "hover:bg-gray-50/50"}`}
+                            onClick={() => setExpandedRowId((id) => (id === row.id ? null : row.id))}
+                          >
+                            <td className="px-2 py-2">
+                              <span className="inline-block text-gray-400">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${expandedRowId === row.id ? "rotate-90" : ""}`}>
+                                  <polyline points="9 18 15 12 9 6" />
+                                </svg>
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-gray-600">
+                              {new Date(row.created_at).toLocaleString("ko-KR", {
+                                month: "numeric",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })}
+                            </td>
+                            <td className="px-3 py-2 text-gray-600">{SOURCE_LABELS[row.source] ?? row.source}</td>
+                            <td className="px-3 py-2">
+                              <span className="font-medium text-gray-800">{row.recipient_name}</span>
+                              {row.recipient_email && row.recipient_email !== "—" && (
+                                <span className="ml-1 block text-xs text-gray-500">{row.recipient_email}</span>
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-gray-700">{row.title}</td>
+                            <td className="max-w-[200px] truncate px-3 py-2 text-gray-600" title={row.body ?? ""}>
+                              {row.body || "—"}
+                            </td>
+                            <td className="px-3 py-2">
+                              <span className={row.status === "success" ? "text-green-600" : "text-red-600"}>
+                                {row.status === "success" ? "성공" : "실패"}
+                              </span>
                             </td>
                           </tr>
-                        )}
-                      </React.Fragment>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                          {expandedRowId === row.id && (
+                            <tr className="border-t-0 bg-gray-50/80">
+                              <td colSpan={7} className="px-4 py-3">
+                                <div className="space-y-1 text-xs">
+                                  <p><span className="font-medium text-gray-600">제목:</span> {row.title}</p>
+                                  <p><span className="font-medium text-gray-600">내용:</span> {row.body || "—"}</p>
+                                  <p><span className="font-medium text-gray-600">URL:</span> {row.url || "—"}</p>
+                                  <p><span className="font-medium text-gray-600">태그:</span> {row.tag || "—"}</p>
+                                  <p><span className="font-medium text-gray-600">유형(source):</span> {row.source}</p>
+                                </div>
+                              </td>
+                            </tr>
+                          )}
+                        </React.Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
             )}
           </div>
         )}

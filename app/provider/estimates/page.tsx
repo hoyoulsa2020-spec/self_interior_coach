@@ -562,18 +562,20 @@ export default function ProviderEstimatesPage() {
 
             return (
               <div key={p.id} className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between px-5 pt-4 pb-3 border-b border-gray-100">
-                  <div className="flex items-center gap-2.5 min-w-0 flex-wrap">
-                    <span className="shrink-0 rounded-full bg-blue-50 px-2.5 py-0.5 text-xs font-semibold text-blue-700">
-                      {p.status === "estimate_waiting" ? "견적대기" : p.status === "active" ? "진행중" : p.status}
-                    </span>
-                    <p className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug">{p.title || "제목 없음"}</p>
+                <div className="flex items-center justify-between gap-2 px-4 py-3 md:px-5 md:pt-4 md:pb-3 border-b border-gray-100">
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
+                        {p.status === "estimate_waiting" ? "견적대기" : p.status === "active" ? "진행중" : p.status}
+                      </span>
+                      <p className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug">{p.title || "제목 없음"}</p>
+                    </div>
                   </div>
-                  <span className="shrink-0 ml-2 text-[11px] text-gray-400">{fmtDate(p.created_at)}</span>
+                  <span className="shrink-0 text-[10px] text-gray-400 md:text-[11px">{fmtDate(p.created_at)}</span>
                 </div>
 
-                <div className="px-5 py-3 space-y-3">
-                  <div className="flex flex-wrap gap-x-5 gap-y-1.5 text-xs text-gray-500">
+                <div className="px-4 py-2 space-y-2 md:px-5 md:py-3 md:space-y-3">
+                  <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 md:gap-x-5 md:gap-y-1.5 md:text-xs">
                     {p.site_address1 && (
                       <div className="flex items-center gap-1">
                         <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z" /><circle cx="12" cy="10" r="3" /></svg>
@@ -597,8 +599,8 @@ export default function ProviderEstimatesPage() {
                     )}
                   </div>
 
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-semibold text-gray-500">대공정별</p>
+                  <div className="space-y-2 md:space-y-3">
+                    <p className="hidden md:block text-[11px] font-semibold text-gray-500">대공정별</p>
                     {groups.map((g) => {
                       const scheduleStr = formatScheduleRange(p.process_schedule, g.cat);
                       const amt = hasBid ? (myEstimates[p.id]?.[g.cat] ?? null) : null;
@@ -610,7 +612,7 @@ export default function ProviderEstimatesPage() {
                       const isInProgress = catStatus === "고민중";
                       const remaining72h = isInProgress && assign?.match_started_at ? format72hRemaining(assign.match_started_at) : null;
                       return (
-                        <div key={g.cat} className="rounded-xl border border-gray-200 bg-gray-50/50 p-3">
+                        <div key={g.cat} className="rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 md:p-3">
                           <div className="flex items-center justify-between gap-2">
                             <p className="text-sm font-semibold text-gray-800">
                               {g.cat}
@@ -640,14 +642,14 @@ export default function ProviderEstimatesPage() {
                             </span>
                           )}
                           {subs.length > 0 && (
-                            <ol className="mt-2 space-y-0.5 pl-3 text-[11px] text-gray-600">
+                            <ol className="mt-1.5 md:mt-2 space-y-0.5 pl-3 text-[11px] text-gray-600 hidden md:block">
                               {subs.map((s, si) => (
                                 <li key={si}><span className="text-gray-400">{si + 1}.</span> {s}</li>
                               ))}
                             </ol>
                           )}
                           {detail?.requirements?.trim() && (
-                            <div className="mt-2 rounded border border-gray-200 bg-white px-2.5 py-1.5">
+                            <div className="mt-1.5 md:mt-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 hidden md:block">
                               <p className="mb-0.5 text-[10px] font-semibold text-gray-500">소비자 요구사항</p>
                               <p className="text-[11px] text-gray-700 whitespace-pre-line leading-relaxed">{detail.requirements}</p>
                             </div>

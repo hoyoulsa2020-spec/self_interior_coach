@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { pyeongToM2 } from "@/lib/area";
+import AddressSearchLayer from "@/components/AddressSearchLayer";
 
 type ProcessRow = { id: string; name: string };
 type CategoryWithProcesses = { id: number; name: string; processes: ProcessRow[] };
@@ -79,6 +80,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   const [validationModal, setValidationModal] = useState<string | null>(null);
 
   const [draggingCat, setDraggingCat] = useState<string | null>(null);
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
   const fileInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
   const loadedRef = useRef(false);
 
@@ -227,21 +229,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
     });
   };
 
-  const openPostcode = () => {
-    const run = () => {
-      const daum = window.daum;
-      if (!daum?.Postcode) return;
-      new daum.Postcode({ oncomplete: (d) => setFormAddress1(d.address ?? "") }).open();
-    };
-    if (window.daum?.Postcode) { run(); return; }
-    if (!document.getElementById("daum-postcode-script")) {
-      const s = document.createElement("script");
-      s.id = "daum-postcode-script";
-      s.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      s.onload = run;
-      document.head.appendChild(s);
-    }
-  };
+  const openPostcode = () => setShowAddressSearch(true);
 
   /** 입력값 → DB 저장용 ㎡ 숫자 (항상 ㎡로 변환) */
   const toM2 = (val: string, unit: "㎡" | "평"): number | null => {
@@ -645,8 +633,9 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   };
 
   return (
+    <>
     <div className="fixed inset-0 top-14 z-50 flex items-center justify-center overflow-hidden bg-transparent px-4 py-4 sm:py-8">
-      <div className="relative flex min-h-0 w-full max-w-xl flex-1 flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "92vh" }}>
+      <div className="relative flex min-h-0 w-full max-w-xl flex-1 flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "min(92vh, calc(100svh - 4rem))" }}>
         {validationModal && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/50 px-4" onClick={() => setValidationModal(null)}>
             <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -676,7 +665,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 space-y-5" style={{ WebkitOverflowScrolling: "touch" }}>
+        <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-5 space-y-5 touch-pan-y" style={{ WebkitOverflowScrolling: "touch" }}>
 
           {/* 프로젝트명 */}
           <div>
@@ -924,5 +913,11 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
         </div>
       </div>
     </div>
+    <AddressSearchLayer
+      open={showAddressSearch}
+      onSelect={setFormAddress1}
+      onClose={() => setShowAddressSearch(false)}
+    />
+    </>
   );
 }

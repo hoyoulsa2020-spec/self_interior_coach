@@ -225,7 +225,7 @@ export default function MembersPage() {
         </div>
       </div>
 
-      {/* 테이블 */}
+      {/* 테이블 (리스트에서 바로 활성화 토글, 우측 정렬) */}
       <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
@@ -246,7 +246,7 @@ export default function MembersPage() {
                   <th className="px-4 py-3">이메일</th>
                   <th className="hidden px-4 py-3 sm:table-cell">전화번호</th>
                   <th className="hidden px-4 py-3 md:table-cell">가입일</th>
-                  <th className="px-4 py-3 text-center">시스템사용</th>
+                  <th className="px-4 py-3 text-right">시스템사용</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -272,22 +272,20 @@ export default function MembersPage() {
                         ? new Date(member.created_at).toLocaleDateString("ko-KR")
                         : "—"}
                     </td>
-                    <td className="px-4 py-3">
-                      <div className="flex justify-center">
-                        <button
-                          type="button"
-                          disabled={togglingId === member.user_id}
-                          onClick={() => toggleStatus(member)}
-                          className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50
-                            ${member.status === "active" ? "bg-indigo-600" : "bg-gray-200"}`}
-                          aria-label="활성화 토글"
-                        >
-                          <span
-                            className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200
-                              ${member.status === "active" ? "translate-x-5" : "translate-x-0"}`}
-                          />
-                        </button>
-                      </div>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        type="button"
+                        disabled={togglingId === member.user_id}
+                        onClick={() => toggleStatus(member)}
+                        className={`relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 focus:outline-none disabled:opacity-50
+                          ${member.status === "active" ? "bg-indigo-600" : "bg-gray-200"}`}
+                        aria-label="활성화 토글"
+                      >
+                        <span
+                          className={`inline-block h-5 w-5 transform rounded-full bg-white shadow transition duration-200
+                            ${member.status === "active" ? "translate-x-5" : "translate-x-0"}`}
+                        />
+                      </button>
                     </td>
                   </tr>
                 ))}

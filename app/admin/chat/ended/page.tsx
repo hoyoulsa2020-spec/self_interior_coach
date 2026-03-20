@@ -113,7 +113,7 @@ export default function AdminChatEndedPage() {
   const getThreadLabel = (t: Thread) => {
     const p = t.profiles;
     const name = t.user_role === "provider" ? (p?.business_name || p?.name) : p?.name;
-    const roleLabel = t.user_role === "consumer" ? "소비자" : "공급업체";
+    const roleLabel = t.user_role === "consumer" ? "소비자" : "시공업체";
     return `${name || "알 수 없음"} (${roleLabel})`;
   };
 

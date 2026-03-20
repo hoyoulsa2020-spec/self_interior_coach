@@ -278,41 +278,63 @@ export default function CompletedProjectsPage() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[600px]">
-              <thead>
-                <tr className="border-b border-gray-200 bg-gray-50">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">프로젝트</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">대공정</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">공정일자</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">완료일자</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">고객성함</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">전화번호</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {filteredRows.map((row, idx) => (
-                  <tr key={`${row.projectId}-${row.category}-${idx}`} className="transition hover:bg-gray-50">
-                    <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.projectTitle}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">
-                      <span className="inline-flex items-center gap-1.5">
-                        {row.category}
-                        <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">완료</span>
-                      </span>
-                    </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{row.scheduleStr}</td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{formatCompletedAt(row.completedAt)}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{row.consumerName}</td>
-                    <td className="px-4 py-3">
-                      <PhoneLink phone={row.consumerPhone} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        <>
+          {/* 모바일: 간략 카드 */}
+          <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden">
+            <ul className="divide-y divide-gray-100">
+              {filteredRows.map((row, idx) => (
+                <li key={`${row.projectId}-${row.category}-${idx}`} className="px-4 py-3">
+                  <p className="font-medium text-gray-800">{row.projectTitle}</p>
+                  <p className="mt-0.5 text-sm font-semibold text-indigo-600">
+                    {row.category}
+                    <span className="ml-1.5 rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">완료</span>
+                  </p>
+                  <p className="mt-0.5 text-xs text-gray-500">{row.consumerName} · {formatCompletedAt(row.completedAt)}</p>
+                  <div className="mt-2">
+                    <PhoneLink phone={row.consumerPhone} />
+                  </div>
+                </li>
+              ))}
+            </ul>
           </div>
-        </div>
+
+          {/* 데스크톱: 테이블 */}
+          <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
+            <div className="overflow-x-auto">
+              <table className="w-full min-w-[600px]">
+                <thead>
+                  <tr className="border-b border-gray-200 bg-gray-50">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">프로젝트</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">대공정</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">공정일자</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">완료일자</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">고객성함</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">전화번호</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {filteredRows.map((row, idx) => (
+                    <tr key={`${row.projectId}-${row.category}-${idx}`} className="transition hover:bg-gray-50">
+                      <td className="px-4 py-3 text-sm font-medium text-gray-800">{row.projectTitle}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">
+                        <span className="inline-flex items-center gap-1.5">
+                          {row.category}
+                          <span className="rounded-full bg-green-100 px-1.5 py-0.5 text-[10px] font-medium text-green-700">완료</span>
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{row.scheduleStr}</td>
+                      <td className="px-4 py-3 text-sm text-gray-600">{formatCompletedAt(row.completedAt)}</td>
+                      <td className="px-4 py-3 text-sm text-gray-700">{row.consumerName}</td>
+                      <td className="px-4 py-3">
+                        <PhoneLink phone={row.consumerPhone} />
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
       )}
     </div>
   );

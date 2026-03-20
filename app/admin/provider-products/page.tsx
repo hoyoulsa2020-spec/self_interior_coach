@@ -154,7 +154,7 @@ export default function ProviderProductsPage() {
   return (
     <div className="space-y-5">
       <div>
-        <h1 className="text-xl font-semibold text-gray-800">공급업체 유료상품</h1>
+        <h1 className="text-xl font-semibold text-gray-800">시공업체 유료상품</h1>
         <p className="mt-0.5 text-sm text-gray-500">업체를 클릭하여 뱃지를 부여하거나 해제합니다.</p>
       </div>
 
@@ -191,15 +191,47 @@ export default function ProviderProductsPage() {
         <span className="ml-auto shrink-0 text-xs text-gray-400">총 {totalCount}개 업체</span>
       </div>
 
-      {/* 테이블 */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* 모바일: 간략 카드 */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden">
         {isLoading ? (
           <div className="flex items-center justify-center py-16">
             <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
           </div>
         ) : providers.length === 0 ? (
           <div className="py-16 text-center text-sm text-gray-400">
-            {appliedSearch ? "검색 결과가 없습니다." : "등록된 공급업체가 없습니다."}
+            {appliedSearch ? "검색 결과가 없습니다." : "등록된 시공업체가 없습니다."}
+          </div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {providers.map((p) => {
+              const categories = toArray(p.category);
+              return (
+                <li key={p.user_id} className="px-4 py-3">
+                  <p className="font-medium text-gray-800">{p.business_name || "—"}</p>
+                  <p className="mt-0.5 text-xs text-gray-500">{p.owner_name || "—"}</p>
+                  {categories.length > 0 && (
+                    <p className="mt-1 truncate text-[11px] text-gray-400">{categories.slice(0, 2).join(", ")}{categories.length > 2 ? ` +${categories.length - 2}` : ""}</p>
+                  )}
+                  <button type="button" onClick={() => openBadgeModal(p)}
+                    className="mt-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1 text-xs font-medium text-indigo-600">
+                    뱃지 관리
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* 데스크톱: 테이블 */}
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
+        {isLoading ? (
+          <div className="flex items-center justify-center py-16">
+            <span className="h-5 w-5 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
+          </div>
+        ) : providers.length === 0 ? (
+          <div className="py-16 text-center text-sm text-gray-400">
+            {appliedSearch ? "검색 결과가 없습니다." : "등록된 시공업체가 없습니다."}
           </div>
         ) : (
           <div className="overflow-x-auto">

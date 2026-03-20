@@ -243,7 +243,7 @@ export default function AdminAccessLogPage() {
             <p className="text-[10px] text-gray-400">회</p>
           </div>
           <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
-            <p className="text-xs text-gray-500">공급업체 방문</p>
+            <p className="text-xs text-gray-500">시공업체 방문</p>
             <p className="mt-0.5 text-xl font-bold text-violet-600">
               {stats ? stats.providerCount.toLocaleString() : "-"}
             </p>
@@ -277,7 +277,26 @@ export default function AdminAccessLogPage() {
           <span className="h-6 w-6 animate-spin rounded-full border-2 border-indigo-500 border-t-transparent" />
         </div>
       ) : (
-        <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <>
+          {/* 모바일: 간략 카드 */}
+          <div className="rounded-xl border border-gray-200 bg-white md:hidden">
+            {logs.length === 0 ? (
+              <div className="px-4 py-8 text-center text-xs text-gray-400">해당 기간에 접속 기록이 없습니다.</div>
+            ) : (
+              <ul className="divide-y divide-gray-100">
+                {logs.map((row, index) => (
+                  <li key={`${row.user_id}-${row.access_date}`} className="px-4 py-3">
+                    <p className="font-medium text-gray-800">{row.business_name || row.name || "-"}</p>
+                    <p className="mt-0.5 text-[11px] text-gray-500">{ROLE_LABEL[row.role] ?? row.role} · {row.visit_count}회</p>
+                    <p className="mt-0.5 text-[10px] text-gray-400">{formatDateTime(row.first_visit_at)}</p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {/* 데스크톱: 테이블 */}
+          <div className="hidden overflow-hidden rounded-xl border border-gray-200 bg-white md:block">
           <div className="overflow-x-auto">
             <table className="w-full table-fixed divide-y divide-gray-200 text-xs">
               <colgroup>
@@ -335,7 +354,8 @@ export default function AdminAccessLogPage() {
               </tbody>
             </table>
           </div>
-        </div>
+          </div>
+        </>
       )}
     </div>
   );

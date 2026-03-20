@@ -306,7 +306,7 @@ export default function AdminChatPage() {
   const getThreadLabel = (t: Thread) => {
     const p = t.profiles;
     const name = t.user_role === "provider" ? (p?.business_name || p?.name) : p?.name;
-    const roleLabel = t.user_role === "consumer" ? "소비자" : "공급업체";
+    const roleLabel = t.user_role === "consumer" ? "소비자" : "시공업체";
     return `${name || "알 수 없음"} (${roleLabel})`;
   };
 
@@ -353,7 +353,7 @@ export default function AdminChatPage() {
       <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
         <div className="border-b border-gray-200 px-4 py-3">
           <h2 className="text-sm font-semibold text-gray-800">채팅 목록</h2>
-          <p className="mt-0.5 text-xs text-gray-500">소비자·공급업체와 1:1 채팅</p>
+          <p className="mt-0.5 text-xs text-gray-500">소비자·시공업체와 1:1 채팅</p>
         </div>
         <div className="flex-1 overflow-y-auto overflow-x-visible">
           {loading ? (

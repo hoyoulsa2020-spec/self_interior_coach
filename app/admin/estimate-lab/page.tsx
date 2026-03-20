@@ -49,8 +49,11 @@ function formatAmount(n: number): string {
   return n.toLocaleString("ko-KR") + "원";
 }
 
+type ProjectArea = { supply_area_m2?: number | null; exclusive_area_m2?: number | null };
+
 export default function EstimateLabPage() {
   const [estimates, setEstimates] = useState<EstimateRow[]>([]);
+  const [projectAreaMap, setProjectAreaMap] = useState<Record<string, ProjectArea>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [categoryFilter, setCategoryFilter] = useState("");
   const initializedRef = useRef(false);
@@ -77,7 +80,28 @@ export default function EstimateLabPage() {
       if (error) {
         console.error("견적 데이터 조회 오류:", error.message);
       } else {
-        setEstimates((estData ?? []) as unknown as EstimateRow[]);
+        const list = (estData ?? []) as unknown as EstimateRow[];
+        setEstimates(list);
+
+        // snapshot에 평수 없으면 projects에서 보충
+        const needFetch = [...new Set(list
+          .filter((e) => {
+            const s = e.project_snapshot;
+            return (s?.supply_area_m2 == null && s?.exclusive_area_m2 == null);
+          })
+          .map((e) => e.project_id)
+        )];
+        if (needFetch.length > 0) {
+          const { data: projData } = await supabase
+            .from("projects")
+            .select("id, supply_area_m2, exclusive_area_m2")
+            .in("id", needFetch);
+          const map: Record<string, ProjectArea> = {};
+          (projData ?? []).forEach((p: { id: string; supply_area_m2?: number | null; exclusive_area_m2?: number | null }) => {
+            map[p.id] = { supply_area_m2: p.supply_area_m2, exclusive_area_m2: p.exclusive_area_m2 };
+          });
+          setProjectAreaMap(map);
+        }
       }
       setIsLoading(false);
     };
@@ -92,6 +116,17 @@ export default function EstimateLabPage() {
     : estimates;
 
   const allCategories = [...new Set(estimates.flatMap((e) => Object.keys(e.amounts ?? {})))].sort();
+
+  const getAreaStr = (row: EstimateRow): string => {
+    const snap = row.project_snapshot;
+    const fallback = projectAreaMap[row.project_id];
+    const supply = snap?.supply_area_m2 ?? fallback?.supply_area_m2;
+    const exclusive = snap?.exclusive_area_m2 ?? fallback?.exclusive_area_m2;
+    if (supply != null || exclusive != null) {
+      return `${supply != null ? formatArea(supply) : "—"} / ${exclusive != null ? formatArea(exclusive) : "—"}`;
+    }
+    return "—";
+  };
 
   if (isLoading) {
     return (
@@ -152,8 +187,31 @@ export default function EstimateLabPage() {
         </div>
       </div>
 
-      {/* 견적 목록 */}
-      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden">
+      {/* 견적 목록 - 모바일: 간략 카드 */}
+      <div className="rounded-2xl border border-gray-200 bg-white overflow-hidden md:hidden">
+        {filtered.length === 0 ? (
+          <div className="px-4 py-12 text-center text-sm text-gray-400">아직 수집된 견적 데이터가 없습니다.</div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {filtered.map((row) => {
+              const snap = row.project_snapshot;
+              const amt = row.amounts ?? {};
+              const total = Object.values(amt).reduce((s, v) => s + (v ?? 0), 0);
+              return (
+                <li key={row.id} className="px-4 py-3">
+                  <p className="font-medium text-gray-800">{row.provider_business_name || "—"}</p>
+                  <p className="mt-0.5 truncate text-xs text-gray-600">{snap?.title || "—"}</p>
+                  <p className="mt-1 text-xs font-medium text-gray-700">평수: {getAreaStr(row)}</p>
+                  <p className="mt-1 text-xs font-semibold text-indigo-600">{formatAmount(total)}</p>
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* 견적 목록 - 데스크톱: 테이블 */}
+      <div className="hidden rounded-2xl border border-gray-200 bg-white overflow-hidden md:block">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead>
@@ -178,9 +236,6 @@ export default function EstimateLabPage() {
                   const snap = row.project_snapshot;
                   const amt = row.amounts ?? {};
                   const total = Object.values(amt).reduce((s, v) => s + (v ?? 0), 0);
-                  const areaStr = snap?.supply_area_m2 != null || snap?.exclusive_area_m2 != null
-                    ? `${snap?.supply_area_m2 ? formatArea(snap.supply_area_m2) : "—"} / ${snap?.exclusive_area_m2 ? formatArea(snap.exclusive_area_m2) : "—"}`
-                    : "—";
                   return (
                     <tr key={row.id} className="border-b border-gray-100 hover:bg-gray-50/50">
                       <td className="px-4 py-3 text-gray-600">{fmtDate(row.created_at)}</td>
@@ -193,7 +248,7 @@ export default function EstimateLabPage() {
                           )}
                         </div>
                       </td>
-                      <td className="px-4 py-3 text-gray-600">{areaStr}</td>
+                      <td className="px-4 py-3 text-gray-600">{getAreaStr(row)}</td>
                       <td className="px-4 py-3">
                         <div className="space-y-0.5">
                           {Object.entries(amt).map(([cat, val]) => (

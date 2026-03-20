@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import AddressSearchLayer from "@/components/AddressSearchLayer";
 
 const WORK_ZONES = [
   "전국",
@@ -39,6 +40,7 @@ export default function ProviderOnboardingPage() {
   const [introduction, setIntroduction] = useState("");
   const [phone, setPhone] = useState("");
   const [warrantyPeriod, setWarrantyPeriod] = useState("");
+  const [showAddressSearch, setShowAddressSearch] = useState(false);
 
   useEffect(() => {
     const loadProfile = async (userId: string) => {
@@ -99,29 +101,7 @@ export default function ProviderOnboardingPage() {
     return () => subscription.unsubscribe();
   }, []);
 
-  const openAddressSearch = () => {
-    const script = document.getElementById("daum-postcode");
-    const launch = () => {
-      const daum = window.daum;
-      if (!daum?.Postcode) return;
-      new daum.Postcode({
-        oncomplete: (data) => {
-          setAddress1(data.roadAddress || data.jibunAddress || "");
-          setAddress2("");
-        },
-      }).open();
-    };
-
-    if (!script) {
-      const s = document.createElement("script");
-      s.id = "daum-postcode";
-      s.src = "//t1.daumcdn.net/mapjsapi/bundle/postcode/prod/postcode.v2.js";
-      s.onload = launch;
-      document.head.appendChild(s);
-    } else {
-      launch();
-    }
-  };
+  const openAddressSearch = () => setShowAddressSearch(true);
 
   const toggleZone = (zone: string) => {
     if (zone === "전국") {
@@ -216,6 +196,7 @@ export default function ProviderOnboardingPage() {
   }
 
   return (
+    <>
     <main className="min-h-screen bg-background px-4 py-8">
       <div className="mx-auto w-full max-w-lg">
         <div className="mb-6 flex items-center justify-between">
@@ -499,6 +480,12 @@ export default function ProviderOnboardingPage() {
         </form>
       </div>
     </main>
+    <AddressSearchLayer
+      open={showAddressSearch}
+      onSelect={(addr) => { setAddress1(addr); setAddress2(""); }}
+      onClose={() => setShowAddressSearch(false)}
+    />
+    </>
   );
 }
 

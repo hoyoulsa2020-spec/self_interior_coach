@@ -64,7 +64,7 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: "공급업체 유료상품",
+    label: "시공업체 유료상품",
     href: "/admin/provider-products",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -93,7 +93,7 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
-    label: "업체상담요청",
+    label: "시공업체상담요청",
     href: "/admin/provider-requests",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -471,7 +471,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               </Link>
             </li>
 
-            {/* 공급업체관리 — 아코디언 */}
+            {/* 시공업체관리 — 아코디언 */}
             <li>
               {showCollapsed ? (
                 <Link
@@ -479,7 +479,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                   onClick={closeSidebar}
                   className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
                     ${isOnProviders ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
-                  title="공급업체관리"
+                  title="시공업체관리"
                 >
                   <span className={isOnProviders ? "text-indigo-500" : "text-gray-400"}>
                     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -502,7 +502,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         <path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2" />
                       </svg>
                     </span>
-                    <span className="flex-1 text-left">공급업체관리</span>
+                    <span className="flex-1 text-left">시공업체관리</span>
                     <svg
                       width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
                       className={`shrink-0 transition-transform duration-200 ${providerOpen ? "rotate-180" : ""}`}
@@ -638,6 +638,17 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         >
                           <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
                           회원들에게 채팅하기
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/admin/chat/log"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/chat/log" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          채팅로그
                         </Link>
                       </li>
                     </ul>

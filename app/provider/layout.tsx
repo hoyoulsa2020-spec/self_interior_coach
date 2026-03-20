@@ -630,13 +630,17 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         <div className="p-4 sm:p-6">{children}</div>
       </main>
 
-      {/* 셀인코치 채팅 말풍선 (채팅 페이지 제외) */}
+      {/* 셀인코치 채팅 말풍선 (채팅 페이지 제외, 견적대기 페이지 모바일에서는 숨김) */}
       {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
-        <AdminChatBubble userRole="provider" userId={userId} />
+        <div className={pathname?.startsWith("/provider/estimates") ? "hidden md:block" : ""}>
+          <AdminChatBubble userRole="provider" userId={userId} />
+        </div>
       )}
-      {/* 소비자와의 채팅 말풍선 (채팅 페이지 제외) */}
+      {/* 소비자와의 채팅 말풍선 (채팅 페이지 제외, 견적대기 페이지 모바일에서는 숨김) */}
       {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
-        <ConsumerProviderChatBubble userRole="provider" userId={userId} />
+        <div className={pathname?.startsWith("/provider/estimates") ? "hidden md:block" : ""}>
+          <ConsumerProviderChatBubble userRole="provider" userId={userId} />
+        </div>
       )}
     </div>
     </ProviderLayoutContext.Provider>

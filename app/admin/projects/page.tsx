@@ -260,26 +260,60 @@ export default function AdminProjectsPage() {
       </div>
 
       {/* 필터 + 검색 */}
-      <div className="flex flex-wrap items-center gap-2">
-        {["all", "pending", "publish_requested", "estimate_waiting", "active", "completed", "cancelled"].map((s) => (
-          <button key={s} type="button" onClick={() => handleStatusFilter(s)}
-            className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition ${statusFilter === s ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
-            {s === "all" ? "전체" : STATUS_LABEL[s]?.label ?? s}
-          </button>
-        ))}
-        <div className="ml-auto flex gap-2">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+        <div className="flex flex-wrap gap-1.5">
+          {["all", "pending", "publish_requested", "estimate_waiting", "active", "completed", "cancelled"].map((s) => (
+            <button key={s} type="button" onClick={() => handleStatusFilter(s)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${statusFilter === s ? "bg-indigo-600 text-white" : "bg-white border border-gray-200 text-gray-600 hover:bg-gray-50"}`}>
+              {s === "all" ? "전체" : STATUS_LABEL[s]?.label ?? s}
+            </button>
+          ))}
+        </div>
+        <div className="flex gap-2 sm:ml-auto">
           <input
             value={search} onChange={(e) => setSearch(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleSearch()}
             placeholder="이름·연락처·주소·제목 검색"
-            className="w-64 rounded-xl border border-gray-200 bg-white px-3.5 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
+            className="min-w-0 flex-1 rounded-xl border border-gray-200 bg-white px-3 py-2 text-sm outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100 sm:w-64" />
           <button onClick={handleSearch}
-            className="rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">검색</button>
+            className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">검색</button>
         </div>
       </div>
 
-      {/* 테이블 */}
-      <div className="overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm">
+      {/* 모바일: 간략 카드 목록 */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm md:hidden">
+        {isLoading ? (
+          <div className="px-4 py-10 text-center text-sm text-gray-400">불러오는 중...</div>
+        ) : projects.length === 0 ? (
+          <div className="px-4 py-10 text-center text-sm text-gray-400">등록된 프로젝트가 없습니다.</div>
+        ) : (
+          <ul className="divide-y divide-gray-100">
+            {projects.map((p) => {
+              const si = STATUS_LABEL[p.status] ?? { label: p.status, color: "bg-gray-100 text-gray-500" };
+              return (
+                <li key={p.id} onClick={() => setSelected(p)} className="cursor-pointer px-4 py-3 active:bg-indigo-50/40">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-medium text-gray-800">{p.title || "제목 없음"}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">{p.contact_name || "—"} · {fmtDate(p.created_at)}</p>
+                      {(p.site_address1 || p.site_address2) && (
+                        <p className="mt-0.5 truncate text-[11px] text-gray-600">{(p.site_address1 || "") + (p.site_address2 ? ` ${p.site_address2}` : "")}</p>
+                      )}
+                    </div>
+                    <span className={`shrink-0 rounded-full px-2 py-0.5 text-[11px] font-medium ${si.color}`}>{si.label}</span>
+                  </div>
+                  {p.status === "publish_requested" && formatRemainingPublishCancel(p.publish_requested_at) && (
+                    <p className="mt-1 text-[11px] font-medium text-orange-600">{formatRemainingPublishCancel(p.publish_requested_at)}</p>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
+
+      {/* 데스크톱: 전체 테이블 */}
+      <div className="hidden overflow-hidden rounded-2xl border border-gray-200 bg-white shadow-sm md:block">
         <table className="w-full text-sm">
           <thead className="border-b border-gray-100 bg-gray-50 text-xs text-gray-500">
             <tr>
@@ -306,7 +340,7 @@ export default function AdminProjectsPage() {
                   <td className="px-4 py-3 font-medium text-gray-800">{p.contact_name || "—"}</td>
                   <td className="px-4 py-3 text-gray-600 text-xs">{p.contact_phone || "—"}</td>
                   <td className="px-4 py-3 text-gray-800 max-w-[180px] truncate">{p.title || "—"}</td>
-                  <td className="hidden px-4 py-3 text-gray-500 text-xs max-w-[160px] truncate md:table-cell">{p.site_address1 || "—"}</td>
+                  <td className="hidden px-4 py-3 text-gray-500 text-xs max-w-[160px] truncate md:table-cell" title={[p.site_address1, p.site_address2].filter(Boolean).join(" ")}>{(p.site_address1 || "") + (p.site_address2 ? ` ${p.site_address2}` : "") || "—"}</td>
                   <td className="hidden px-4 py-3 text-gray-500 text-xs whitespace-nowrap lg:table-cell">{p.start_date ? fmtDate(p.start_date) : "—"}</td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -358,7 +392,7 @@ export default function AdminProjectsPage() {
                   ["신청자", selected.contact_name],
                   ["연락처", selected.contact_phone],
                   ["이메일", selected.contact_email],
-                  ["현장주소", [selected.site_address1, selected.site_address2].filter(Boolean).join(" ")],
+                  ["현장주소", [selected.site_address1, selected.site_address2].filter(Boolean).join(" ") || "—"],
                   ["공사시작일", selected.start_date ? fmtDate(selected.start_date) : null],
                   ["입주일", selected.move_in_date ? fmtDate(selected.move_in_date) : null],
                   ["공급면적", selected.supply_area_m2 ? formatArea(selected.supply_area_m2) : null],

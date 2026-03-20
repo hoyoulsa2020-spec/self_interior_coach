@@ -328,7 +328,7 @@ export default function AdminDashboardPage() {
     },
     {
       role: "provider" as const,
-      label: "공급업체",
+      label: "시공업체",
       total: stats?.provider ?? 0,
       period: periodStats?.provider ?? null,
       iconBg: "bg-violet-100",
@@ -368,9 +368,9 @@ export default function AdminDashboardPage() {
       </div>
 
       {/* 가입자 카드 */}
-      <CollapsiblePanel title="가입자 현황" subtitle="개인고객·공급업체·전체" storageKey="admin-dash-stats">
+      <CollapsiblePanel title="가입자 현황" subtitle="개인고객·시공업체·전체" storageKey="admin-dash-stats">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-          {/* 개인고객 / 공급업체 카드 (기간별 통계 포함) */}
+          {/* 개인고객 / 시공업체 카드 (기간별 통계 포함) */}
           {roleCards.map((card) => (
           <div key={card.label} className="rounded-2xl border border-gray-200 bg-white p-5 shadow-sm">
             <div className="flex items-center gap-3">
@@ -421,7 +421,7 @@ export default function AdminDashboardPage() {
               }
             </div>
           </div>
-          {/* 기간별 통계 (개인고객 + 공급업체 합산) */}
+          {/* 기간별 통계 (개인고객 + 시공업체 합산) */}
           <div className="mt-4 grid grid-cols-3 divide-x divide-gray-100 rounded-xl bg-gray-50 py-2.5">
             {[
               { label: "어제", key: "yesterday" as const },
@@ -556,7 +556,7 @@ export default function AdminDashboardPage() {
         headerRight={
           <div className="flex items-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-blue-500" />개인고객</span>
-            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />공급업체</span>
+            <span className="flex items-center gap-1.5"><span className="inline-block h-2.5 w-2.5 rounded-full bg-violet-500" />시공업체</span>
           </div>
         }
       >
@@ -572,7 +572,7 @@ export default function AdminDashboardPage() {
               <YAxis allowDecimals={false} tick={{ fontSize: 11, fill: "#9ca3af" }} tickLine={false} axisLine={false} />
               <Tooltip
                 contentStyle={{ borderRadius: "10px", border: "1px solid #e5e7eb", fontSize: "12px", boxShadow: "0 2px 8px rgba(0,0,0,0.08)" }}
-                formatter={(value: unknown, name: unknown) => [`${value != null ? value : 0}명`, name === "consumer" ? "개인고객" : "공급업체"]}
+                formatter={(value: unknown, name: unknown) => [`${value != null ? value : 0}명`, name === "consumer" ? "개인고객" : "시공업체"]}
               />
               <Line type="monotone" dataKey="consumer" stroke="#3b82f6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
               <Line type="monotone" dataKey="provider" stroke="#8b5cf6" strokeWidth={2} dot={false} activeDot={{ r: 4 }} />
