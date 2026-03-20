@@ -3,12 +3,10 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { pickRandomVideo, SPLASH_VIDEOS } from "@/lib/backgroundVideos";
+import { WHITE_POSTER } from "@/lib/videoPoster";
 
 const SPLASH_DURATION_MS = 5000;
 const FADE_OUT_MS = 500;
-const GRADIENT_STYLE = {
-  background: "linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
-};
 
 async function getRedirectPath(): Promise<string> {
   try {
@@ -41,13 +39,9 @@ async function getRedirectPath(): Promise<string> {
 export default function SplashScreen() {
   const [phase, setPhase] = useState<"show" | "fadeout">("show");
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  const [useGradient, setUseGradient] = useState(false); // SSR/초기: 검은 배경(서버·클라이언트 동일)
 
   useEffect(() => {
-    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
-    const isCap = !!cap?.isNativePlatform?.();
-    setUseGradient(isCap);
-    if (!isCap) setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
+    setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
   }, []);
 
   useEffect(() => {
@@ -70,11 +64,9 @@ export default function SplashScreen() {
         phase === "fadeout" ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* 웹: 배경 영상 / Capacitor 앱: 그라데이션 (Hydration 방지: 초기엔 검은 배경) */}
+      {/* poster로 로드 전 재생 아이콘 대체 (웹·앱 공통) */}
       <div className="absolute inset-0 bg-black">
-        {useGradient ? (
-          <div className="absolute inset-0" style={GRADIENT_STYLE} aria-hidden />
-        ) : videoSrc ? (
+        {videoSrc ? (
           <>
             <video
               key={videoSrc}
@@ -82,6 +74,7 @@ export default function SplashScreen() {
               muted
               loop
               playsInline
+              poster={WHITE_POSTER}
               className="absolute inset-0 h-full w-full object-cover"
             >
               <source src={videoSrc} type="video/mp4" />
@@ -89,7 +82,7 @@ export default function SplashScreen() {
             <div className="absolute inset-0 bg-black/30" aria-hidden />
           </>
         ) : (
-          <div className="absolute inset-0 bg-black" aria-hidden />
+          <div className="absolute inset-0 bg-white" aria-hidden />
         )}
       </div>
 
