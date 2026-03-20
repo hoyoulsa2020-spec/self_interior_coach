@@ -3,7 +3,15 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
+  --safe-top: env(safe-area-inset-top, 0px);
+  --header-offset: calc(3.5rem + var(--safe-top));
+}
+
+/* 모바일/앱: Android WebView는 env가 0일 수 있음 → 최소 24px 보장 */
+@media (max-width: 1024px) {
+  :root {
+    --safe-top: max(env(safe-area-inset-top, 0px), 24px);
+  }
 }
 
 @theme inline {
