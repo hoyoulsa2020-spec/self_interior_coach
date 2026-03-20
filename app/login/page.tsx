@@ -1,7 +1,8 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
-import { LOGIN_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
+import VideoOrGradientBackground from "@/components/VideoOrGradientBackground";
+import { LOGIN_VIDEOS } from "@/lib/backgroundVideos";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 
@@ -192,32 +193,9 @@ export default function LoginPage() {
     }
   };
 
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  useEffect(() => {
-    setVideoSrc(pickRandomVideo(LOGIN_VIDEOS));
-  }, []);
-
   return (
     <main className="relative min-h-screen flex items-center justify-center overflow-hidden px-4 py-8">
-      {/* 배경 영상 */}
-      <div className="fixed inset-0 z-0 bg-black">
-        {videoSrc && (
-        <video
-          key={videoSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-        >
-          <source
-            src={videoSrc}
-            type="video/mp4"
-          />
-        </video>
-        )}
-        <div className="absolute inset-0 bg-black/40 backdrop-blur-[1px]" aria-hidden />
-      </div>
+      <VideoOrGradientBackground videos={LOGIN_VIDEOS} overlayClassName="bg-black/40 backdrop-blur-[1px]" />
 
       <div className="relative z-10 w-full max-w-md">
         <header className="mb-8 text-center">

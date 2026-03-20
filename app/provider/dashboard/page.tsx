@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useProviderLayout } from "../ProviderLayoutContext";
-import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
+import VideoOrGradientBackground from "@/components/VideoOrGradientBackground";
+import { DASHBOARD_VIDEOS } from "@/lib/backgroundVideos";
 import CollapsiblePanel from "@/components/CollapsiblePanel";
 import NoticeLayer from "@/components/NoticeLayer";
 import {
@@ -99,11 +100,6 @@ export default function ProviderDashboardPage() {
   const initializedRef = useRef(false);
   const categoriesRef = useRef<string[]>([]);
   const animatedTotalSales = useAnimatedValue(totalSales, 1200, [totalSales]);
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  useEffect(() => {
-    setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
-  }, []);
-
   useEffect(() => {
     if (initializedRef.current) return;
     initializedRef.current = true;
@@ -429,22 +425,11 @@ export default function ProviderDashboardPage() {
 
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
-      {/* 배경 영상 */}
-      <div className={`fixed inset-0 top-14 left-0 z-0 bg-black ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}>
-        {videoSrc && (
-        <video
-          key={videoSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-        >
-          <source src={videoSrc} type="video/mp4" />
-        </video>
-        )}
-        <div className="absolute inset-0 bg-black/40" aria-hidden />
-      </div>
+      <VideoOrGradientBackground
+        videos={DASHBOARD_VIDEOS}
+        overlayClassName="bg-black/40"
+        wrapperClassName={`fixed inset-0 top-14 left-0 z-0 bg-black ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}
+      />
 
       <div className="relative z-10 space-y-6">
       {/* 헤더 */}

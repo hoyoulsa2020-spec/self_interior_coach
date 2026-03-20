@@ -23,6 +23,10 @@ export default function PWAInstallPrompt() {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
+    // Capacitor 앱(네이티브) 내에서는 PWA 설치 안내 숨김
+    const Capacitor = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    if (Capacitor?.isNativePlatform?.()) return;
+
     // iOS: iPhone/iPad/iPod. iPadOS 13+ reports MacIntel + maxTouchPoints. standalone은 iOS Safari에만 존재
     const ios =
       /iPad|iPhone|iPod/.test(navigator.userAgent) ||

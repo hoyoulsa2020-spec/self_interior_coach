@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useEffect, useState, useRef, useCallback } from "react";
-import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
+import VideoOrGradientBackground from "@/components/VideoOrGradientBackground";
+import { DASHBOARD_VIDEOS } from "@/lib/backgroundVideos";
 import { supabase } from "@/lib/supabaseClient";
 import CollapsiblePanel from "@/components/CollapsiblePanel";
 import { useDashboardLayout } from "./DashboardLayoutContext";
@@ -70,32 +71,13 @@ export default function DashboardPage() {
   // 진행중(active): 상단에 표시. 견적대기까지는 하단(기타)에 표시
   const activeProjects = projects.filter((p) => p.status === "active");
   const otherProjects = projects.filter((p) => p.status !== "active");
-  const [videoSrc, setVideoSrc] = useState<string | null>(null);
-  useEffect(() => {
-    setVideoSrc(pickRandomVideo(DASHBOARD_VIDEOS));
-  }, []);
-
   return (
     <div className="relative min-h-[calc(100vh-3.5rem)]">
-      {/* 배경 영상 (대시보드 메인만) */}
-      <div className={`fixed inset-0 top-14 left-0 z-0 ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}>
-        {videoSrc && (
-        <video
-          key={videoSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-        >
-          <source
-            src={videoSrc}
-            type="video/mp4"
-          />
-        </video>
-        )}
-        <div className="absolute inset-0 bg-black/40" aria-hidden />
-      </div>
+      <VideoOrGradientBackground
+        videos={DASHBOARD_VIDEOS}
+        overlayClassName="bg-black/40"
+        wrapperClassName={`fixed inset-0 top-14 left-0 z-0 bg-black ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}
+      />
 
       <div className="relative z-10 space-y-6">
       {/* 인사말 */}

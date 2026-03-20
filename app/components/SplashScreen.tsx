@@ -6,6 +6,9 @@ import { pickRandomVideo, SPLASH_VIDEOS } from "@/lib/backgroundVideos";
 
 const SPLASH_DURATION_MS = 5000;
 const FADE_OUT_MS = 500;
+const GRADIENT_STYLE = {
+  background: "linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%)",
+};
 
 async function getRedirectPath(): Promise<string> {
   try {
@@ -38,9 +41,13 @@ async function getRedirectPath(): Promise<string> {
 export default function SplashScreen() {
   const [phase, setPhase] = useState<"show" | "fadeout">("show");
   const [videoSrc, setVideoSrc] = useState<string | null>(null);
+  const [useGradient, setUseGradient] = useState(false); // SSR/초기: 검은 배경(서버·클라이언트 동일)
 
   useEffect(() => {
-    setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
+    const cap = (window as unknown as { Capacitor?: { isNativePlatform?: () => boolean } }).Capacitor;
+    const isCap = !!cap?.isNativePlatform?.();
+    setUseGradient(isCap);
+    if (!isCap) setVideoSrc(pickRandomVideo(SPLASH_VIDEOS));
   }, []);
 
   useEffect(() => {
@@ -63,24 +70,27 @@ export default function SplashScreen() {
         phase === "fadeout" ? "opacity-0" : "opacity-100"
       }`}
     >
-      {/* 배경 영상 (약 3초) */}
+      {/* 웹: 배경 영상 / Capacitor 앱: 그라데이션 (Hydration 방지: 초기엔 검은 배경) */}
       <div className="absolute inset-0 bg-black">
-        {videoSrc && (
-        <video
-          key={videoSrc}
-          autoPlay
-          muted
-          loop
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-        >
-          <source
-            src={videoSrc}
-            type="video/mp4"
-          />
-        </video>
+        {useGradient ? (
+          <div className="absolute inset-0" style={GRADIENT_STYLE} aria-hidden />
+        ) : videoSrc ? (
+          <>
+            <video
+              key={videoSrc}
+              autoPlay
+              muted
+              loop
+              playsInline
+              className="absolute inset-0 h-full w-full object-cover"
+            >
+              <source src={videoSrc} type="video/mp4" />
+            </video>
+            <div className="absolute inset-0 bg-black/30" aria-hidden />
+          </>
+        ) : (
+          <div className="absolute inset-0 bg-black" aria-hidden />
         )}
-        <div className="absolute inset-0 bg-black/30" aria-hidden />
       </div>
 
       {/* 로고 + 텍스트 */}
