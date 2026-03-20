@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import ChatImageLightbox from "@/components/ChatImageLightbox";
+import AlertModal from "@/components/AlertModal";
 
 type Thread = {
   id: string;
@@ -30,6 +31,12 @@ export default function AdminChatEndedPage() {
   const [loading, setLoading] = useState(true);
   const [messagesLoading, setMessagesLoading] = useState(false);
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const [deletingThreadId, setDeletingThreadId] = useState<string | null>(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
+  const [deletePassword, setDeletePassword] = useState("");
+  const [deletePasswordError, setDeletePasswordError] = useState<string | null>(null);
 
   useEffect(() => {
     const init = async () => {
@@ -48,6 +55,7 @@ export default function AdminChatEndedPage() {
         window.location.href = "/login";
         return;
       }
+      setUserRole(profile.role);
     };
     init();
   }, []);
@@ -115,6 +123,34 @@ export default function AdminChatEndedPage() {
     return "종료됨";
   };
 
+  const handleDeleteThread = async () => {
+    if (!selectedThread || deletingThreadId) return;
+    setDeletePasswordError(null);
+    const { data: sessionData } = await supabase.auth.getSession();
+    const session = sessionData?.session;
+    const email = session?.user?.email;
+    if (!email) {
+      setAlertMessage("이메일 로그인 계정만 삭제할 수 있습니다.");
+      return;
+    }
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password: deletePassword });
+    if (signInError) {
+      setDeletePasswordError("비밀번호 확인해주세요");
+      return;
+    }
+    setDeletingThreadId(selectedThread.id);
+    const { error } = await supabase.from("admin_chat_threads").delete().eq("id", selectedThread.id);
+    setDeletingThreadId(null);
+    setShowDeleteConfirm(false);
+    setDeletePassword("");
+    if (!error) {
+      setSelectedThread(null);
+      await loadThreads();
+    } else {
+      setAlertMessage("채팅 삭제에 실패했습니다.");
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -158,6 +194,16 @@ export default function AdminChatEndedPage() {
                 <h3 className="text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
                 <p className="text-xs text-gray-500">{getEndedByLabel(selectedThread)} · {selectedThread.ended_at && new Date(selectedThread.ended_at).toLocaleString("ko-KR")}</p>
               </div>
+              {userRole === "super_admin" && (
+                <button
+                  type="button"
+                  onClick={() => { setDeletePassword(""); setDeletePasswordError(null); setShowDeleteConfirm(true); }}
+                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-red-600 transition hover:bg-red-50"
+                  title="채팅 완전 삭제"
+                >
+                  완전 삭제
+                </button>
+              )}
             </div>
 
             <div className="flex-1 overflow-y-auto p-4">
@@ -227,6 +273,55 @@ export default function AdminChatEndedPage() {
           index={lightbox.index}
           onClose={() => setLightbox(null)}
         />
+      )}
+      {alertMessage && (
+        <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} variant="warning" />
+      )}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => { setShowDeleteConfirm(false); setDeletePassword(""); setDeletePasswordError(null); }}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">채팅 완전 삭제</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              이 채팅을 완전히 삭제하면 복구할 수 없습니다. 정말 삭제하시겠습니까?
+            </p>
+            <p className="mt-3 text-xs text-gray-500">관리자 비밀번호를 입력하세요.</p>
+            <div className="relative mt-2">
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => { setDeletePassword(e.target.value); setDeletePasswordError(null); }}
+                placeholder="비밀번호"
+                className={`w-full rounded-lg border px-3 py-2.5 text-sm outline-none focus:ring-1 ${deletePasswordError ? "border-red-500 focus:border-red-500 focus:ring-red-500" : "border-gray-200 focus:border-red-500 focus:ring-red-500"}`}
+                autoComplete="current-password"
+              />
+              {deletePasswordError && (
+                <div className="absolute left-0 top-full z-10 mt-1.5">
+                  <div className="relative rounded-lg bg-gray-800 px-3 py-2 text-xs text-white shadow-lg">
+                    <span className="absolute -top-1.5 left-4 h-0 w-0 border-l-[6px] border-r-[6px] border-b-[6px] border-l-transparent border-r-transparent border-b-gray-800 border-t-0" />
+                    {deletePasswordError}
+                  </div>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => { setShowDeleteConfirm(false); setDeletePassword(""); setDeletePasswordError(null); }}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteThread}
+                disabled={!!deletingThreadId || !deletePassword.trim()}
+                className="flex-1 rounded-xl bg-red-600 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:opacity-50"
+              >
+                {deletingThreadId ? "삭제 중..." : "삭제"}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

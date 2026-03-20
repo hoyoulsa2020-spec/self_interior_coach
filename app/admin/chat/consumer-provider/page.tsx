@@ -41,6 +41,8 @@ type TabType = "consumer" | "provider";
 
 export default function AdminConsumerProviderChatPage() {
   const router = useRouter();
+  const [threads, setThreads] = useState<Thread[]>([]);
+  const [threadsLoading, setThreadsLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabType | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [searchResults, setSearchResults] = useState<UserItem[]>([]);
@@ -56,6 +58,8 @@ export default function AdminConsumerProviderChatPage() {
   const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const [closingThreadId, setClosingThreadId] = useState<string | null>(null);
+  const [showCloseConfirm, setShowCloseConfirm] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +85,66 @@ export default function AdminConsumerProviderChatPage() {
     };
     init();
   }, [router]);
+
+  const loadThreads = useCallback(async () => {
+    setThreadsLoading(true);
+    try {
+      const { data: threadData } = await supabase
+        .from("admin_chat_threads")
+        .select("id, user_id, user_role, updated_at, admin_read_at, ended_at, ended_by")
+        .is("ended_at", null)
+        .order("updated_at", { ascending: false });
+      const list = threadData ?? [];
+      if (list.length === 0) {
+        setThreads([]);
+        return;
+      }
+      const userIds = [...new Set(list.map((t) => t.user_id))];
+      const { data: profileData } = await supabase
+        .from("profiles")
+        .select("user_id, name, business_name, email")
+        .in("user_id", userIds);
+      const profileMap = new Map((profileData ?? []).map((p) => [p.user_id, p]));
+
+      const unreadCounts = await Promise.all(
+        list.map(async (t) => {
+          let msgQ = supabase
+            .from("admin_chat_messages")
+            .select("id", { count: "exact", head: true })
+            .eq("thread_id", t.id)
+            .in("sender_role", ["consumer", "provider"]);
+          if (t.admin_read_at) {
+            msgQ = msgQ.gt("created_at", t.admin_read_at);
+          }
+          const { count } = await msgQ;
+          return count ?? 0;
+        })
+      );
+
+      setThreads(
+        list.map((t, i) => ({
+          ...t,
+          profiles: profileMap.get(t.user_id) ?? null,
+          unreadCount: unreadCounts[i] ?? 0,
+        }))
+      );
+    } finally {
+      setThreadsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadThreads();
+  }, [loadThreads]);
+
+  useEffect(() => {
+    const ch = supabase
+      .channel("admin-cp-threads")
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_threads" }, () => loadThreads())
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_messages" }, () => loadThreads())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [loadThreads]);
 
   const searchUsers = useCallback(async (role: TabType, q: string) => {
     if (!role) {
@@ -129,7 +193,8 @@ export default function AdminConsumerProviderChatPage() {
       .select("id")
       .single();
     if (error) {
-      console.error("Thread create error:", error);
+      const errMsg = "message" in error ? (error as { message: string }).message : "code" in error ? (error as { code: string }).code : JSON.stringify(error);
+      console.error("Thread create error:", errMsg);
       return null;
     }
     return inserted?.id ?? null;
@@ -157,6 +222,14 @@ export default function AdminConsumerProviderChatPage() {
       unreadCount: 0,
     };
     setSelectedThread(thread);
+    loadThreads();
+  };
+
+  const selectThread = (t: Thread) => {
+    setSelectedThread(t);
+    setActiveTab(null);
+    setSearchQuery("");
+    setSearchResults([]);
   };
 
   const loadMessages = async (threadId: string) => {
@@ -183,7 +256,13 @@ export default function AdminConsumerProviderChatPage() {
     setMessages([]);
     setMessagesLoading(true);
     loadMessages(selectedThread.id);
-    supabase.from("admin_chat_threads").update({ admin_read_at: new Date().toISOString() }).eq("id", selectedThread.id).then(() => {});
+    supabase.from("admin_chat_threads").update({ admin_read_at: new Date().toISOString() }).eq("id", selectedThread.id).then(() => {
+      setThreads((prev) =>
+        prev.map((t) =>
+          t.id === selectedThread.id ? { ...t, admin_read_at: new Date().toISOString(), unreadCount: 0 } : t
+        )
+      );
+    });
 
     const tid = selectedThread.id;
     const ch = supabase
@@ -231,6 +310,7 @@ export default function AdminConsumerProviderChatPage() {
       setInput("");
       setPendingImages([]);
       await loadMessages(selectedThread.id);
+      loadThreads();
       try {
         const { data } = await supabase.auth.getSession();
         if (data?.session?.access_token) {
@@ -264,6 +344,40 @@ export default function AdminConsumerProviderChatPage() {
     return `${name || "알 수 없음"} (${roleLabel})`;
   };
 
+  const handleCloseThread = async () => {
+    if (!selectedThread || closingThreadId) return;
+    setClosingThreadId(selectedThread.id);
+    const { count } = await supabase
+      .from("admin_chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", selectedThread.id);
+    const hasMessages = (count ?? 0) > 0;
+    if (!hasMessages) {
+      const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", selectedThread.id);
+      setClosingThreadId(null);
+      setShowCloseConfirm(false);
+      if (!delError) {
+        setSelectedThread(null);
+        setSelectedUser(null);
+      } else {
+        setAlertMessage("채팅 삭제에 실패했습니다.");
+      }
+      return;
+    }
+    const { error } = await supabase
+      .from("admin_chat_threads")
+      .update({ ended_at: new Date().toISOString(), ended_by: "admin" })
+      .eq("id", selectedThread.id);
+    setClosingThreadId(null);
+    setShowCloseConfirm(false);
+    if (!error) {
+      setSelectedThread(null);
+      setSelectedUser(null);
+    } else {
+      setAlertMessage("채팅 종료에 실패했습니다.");
+    }
+  };
+
   return (
     <div className="flex h-[calc(100vh-8rem)] gap-4">
       <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -271,7 +385,42 @@ export default function AdminConsumerProviderChatPage() {
           <h2 className="text-sm font-semibold text-gray-800">회원들에게 채팅하기</h2>
           <p className="mt-0.5 text-xs text-gray-500">관리자가 먼저 말걸 수 있습니다</p>
         </div>
-        <div className="flex border-b border-gray-100">
+        <div className="flex-1 overflow-y-auto">
+          {/* 진행 중인 대화 */}
+          <div className="border-b border-gray-100">
+            <div className="px-4 py-2 text-xs font-medium text-gray-500">진행 중인 대화</div>
+            {threadsLoading ? (
+              <div className="px-4 py-2 text-center text-xs text-gray-400">불러오는 중...</div>
+            ) : threads.length === 0 ? (
+              <div className="px-4 py-3 text-xs text-gray-400">진행 중인 대화가 없습니다.</div>
+            ) : (
+              <ul className="max-h-40 overflow-y-auto">
+                {threads.map((t) => (
+                  <li key={t.id}>
+                    <button
+                      type="button"
+                      onClick={() => selectThread(t)}
+                      className={`relative w-full px-4 py-2.5 text-left text-sm transition ${selectedThread?.id === t.id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}
+                    >
+                      <p className="font-medium truncate pr-8">{getThreadLabel(t)}</p>
+                      <p className="mt-0.5 text-xs text-gray-500 truncate">
+                        {new Date(t.updated_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                      </p>
+                      {(t.unreadCount ?? 0) > 0 && (
+                        <span className="absolute right-2 top-1/2 -translate-y-1/2 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {t.unreadCount! > 99 ? "99+" : t.unreadCount}
+                        </span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+          {/* 새 대화 시작 */}
+          <div className="border-b border-gray-100">
+            <div className="px-4 py-2 text-xs font-medium text-gray-500">새 대화 시작</div>
+            <div className="flex border-t border-gray-100">
           <button
             type="button"
             onClick={() => { setActiveTab("consumer"); setSearchQuery(""); setSearchResults([]); }}
@@ -331,6 +480,8 @@ export default function AdminConsumerProviderChatPage() {
             <p className="mt-1">검색하여 대화할 회원을 찾으세요.</p>
           </div>
         )}
+          </div>
+        </div>
       </div>
 
       <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
@@ -338,6 +489,14 @@ export default function AdminConsumerProviderChatPage() {
           <>
             <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
               <h3 className="text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirm(true)}
+                className="rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 transition hover:bg-amber-50"
+                title="채팅 종료"
+              >
+                채팅 종료
+              </button>
             </div>
             <div className="flex-1 overflow-y-auto p-4">
               {loading || messagesLoading ? (
@@ -408,6 +567,33 @@ export default function AdminConsumerProviderChatPage() {
       </div>
       {lightbox && <ChatImageLightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
       {alertMessage && <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} variant="warning" />}
+      {showCloseConfirm && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => setShowCloseConfirm(false)}>
+          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-base font-bold text-gray-900">채팅 종료</h3>
+            <p className="mt-2 text-sm leading-relaxed text-gray-600">
+              이 채팅을 종료하면 종료된 채팅 목록으로 이동합니다. 계속하시겠습니까?
+            </p>
+            <div className="mt-6 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setShowCloseConfirm(false)}
+                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
+              >
+                취소
+              </button>
+              <button
+                type="button"
+                onClick={handleCloseThread}
+                disabled={!!closingThreadId}
+                className="flex-1 rounded-xl bg-amber-600 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
+              >
+                {closingThreadId ? "처리 중..." : "종료"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

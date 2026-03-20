@@ -165,7 +165,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const loadChatUnreadCount = async (uid: string) => {
     const { data: thread } = await supabase
       .from("admin_chat_threads")
-      .select("user_read_at, user_cleared_at, ended_at, ended_by")
+      .select("id, user_read_at, user_cleared_at, ended_at, ended_by")
       .eq("user_id", uid)
       .eq("user_role", "consumer")
       .is("ended_at", null)

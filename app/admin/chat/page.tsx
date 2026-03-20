@@ -15,6 +15,7 @@ type Thread = {
   admin_read_at: string | null;
   ended_at: string | null;
   ended_by: string | null;
+  last_sender_role?: string | null;
   profiles?: { name: string | null; business_name: string | null; email: string | null } | null;
   unreadCount?: number;
 };
@@ -79,7 +80,7 @@ export default function AdminChatPage() {
     try {
       const { data: threadData } = await supabase
         .from("admin_chat_threads")
-        .select("id, user_id, user_role, updated_at, admin_read_at, ended_at, ended_by")
+        .select("id, user_id, user_role, updated_at, admin_read_at, ended_at, ended_by, last_sender_role")
         .is("ended_at", null)
         .order("updated_at", { ascending: false });
       const list = threadData ?? [];
@@ -110,11 +111,16 @@ export default function AdminChatPage() {
       );
 
       setThreads(
-        list.map((t, i) => ({
-          ...t,
-          profiles: profileMap.get(t.user_id) ?? null,
-          unreadCount: unreadCounts[i] ?? 0,
-        }))
+        list.map((t, i) => {
+          const msgCount = unreadCounts[i] ?? 0;
+          const userSentLast = t.last_sender_role && ["consumer", "provider"].includes(t.last_sender_role);
+          const unreadCount = msgCount > 0 ? msgCount : (userSentLast ? 1 : 0);
+          return {
+            ...t,
+            profiles: profileMap.get(t.user_id) ?? null,
+            unreadCount,
+          };
+        })
       );
     } finally {
       setLoading(false);
@@ -310,6 +316,23 @@ export default function AdminChatPage() {
   const handleCloseThread = async () => {
     if (!selectedThread || closingThreadId) return;
     setClosingThreadId(selectedThread.id);
+    const { count } = await supabase
+      .from("admin_chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", selectedThread.id);
+    const hasMessages = (count ?? 0) > 0;
+    if (!hasMessages) {
+      const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", selectedThread.id);
+      setClosingThreadId(null);
+      setShowCloseConfirm(false);
+      if (!delError) {
+        setSelectedThread(null);
+        await loadThreads();
+      } else {
+        setAlertMessage("채팅 삭제에 실패했습니다.");
+      }
+      return;
+    }
     const { error } = await supabase
       .from("admin_chat_threads")
       .update({ ended_at: new Date().toISOString(), ended_by: "admin" })
@@ -332,7 +355,7 @@ export default function AdminChatPage() {
           <h2 className="text-sm font-semibold text-gray-800">채팅 목록</h2>
           <p className="mt-0.5 text-xs text-gray-500">소비자·공급업체와 1:1 채팅</p>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto overflow-x-visible">
           {loading ? (
             <div className="p-4 text-center text-sm text-gray-500">불러오는 중...</div>
           ) : threads.length === 0 ? (
@@ -340,20 +363,22 @@ export default function AdminChatPage() {
           ) : (
             <ul className="divide-y divide-gray-100">
               {threads.map((t) => (
-                <li key={t.id}>
+                <li key={t.id} className="relative">
                   <button
                     type="button"
                     onClick={() => setSelectedThread(t)}
-                    className={`relative w-full px-4 py-3 text-left text-sm transition ${
+                    className={`flex w-full items-center gap-2 px-4 py-3 text-left text-sm transition ${
                       selectedThread?.id === t.id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"
                     }`}
                   >
-                    <p className="font-medium">{getThreadLabel(t)}</p>
-                    <p className="mt-0.5 text-xs text-gray-500">
-                      {new Date(t.updated_at).toLocaleString("ko-KR")}
-                    </p>
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium truncate">{getThreadLabel(t)}</p>
+                      <p className="mt-0.5 text-xs text-gray-500">
+                        {new Date(t.updated_at).toLocaleString("ko-KR")}
+                      </p>
+                    </div>
                     {(t.unreadCount ?? 0) > 0 && (
-                      <span className="absolute right-3 top-1/2 flex h-5 min-w-5 -translate-y-1/2 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
+                      <span className="shrink-0 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-bold text-white">
                         {t.unreadCount! > 99 ? "99+" : t.unreadCount}
                       </span>
                     )}

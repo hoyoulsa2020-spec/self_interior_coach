@@ -599,11 +599,18 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                         <Link
                           href="/admin/chat"
                           onClick={closeSidebar}
-                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                          className={`flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
                             ${pathname === "/admin/chat" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
                         >
-                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
-                          실시간 채팅
+                          <span className="flex items-center gap-2">
+                            <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                            실시간 채팅
+                          </span>
+                          {pendingCounts.chatUnread > 0 && (
+                            <span className="flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                              {pendingCounts.chatUnread > 99 ? "99+" : pendingCounts.chatUnread}
+                            </span>
+                          )}
                         </Link>
                       </li>
                       <li>
