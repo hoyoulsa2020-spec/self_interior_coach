@@ -6,6 +6,7 @@ import { supabase } from "@/lib/supabaseClient";
 import { useProviderLayout } from "../ProviderLayoutContext";
 import { DASHBOARD_VIDEOS, pickRandomVideo } from "@/lib/backgroundVideos";
 import CollapsiblePanel from "@/components/CollapsiblePanel";
+import NoticeLayer from "@/components/NoticeLayer";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell, LineChart, Line, Legend,
@@ -447,9 +448,12 @@ export default function ProviderDashboardPage() {
 
       <div className="relative z-10 space-y-6">
       {/* 헤더 */}
-      <div>
-        <h1 className="text-xl font-semibold text-white drop-shadow-md">안녕하세요, {businessName}님 👋</h1>
-        <p className="mt-0.5 text-sm text-white/90">업체 대시보드에 오신 것을 환영합니다.</p>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold text-white drop-shadow-md">안녕하세요, {businessName}님 👋</h1>
+          <p className="mt-0.5 text-sm text-white/90">업체 대시보드에 오신 것을 환영합니다.</p>
+        </div>
+        <NoticeLayer targetAudience="provider" />
       </div>
 
       {/* 요약 카드 */}

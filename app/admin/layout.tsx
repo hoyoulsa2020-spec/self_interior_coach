@@ -173,6 +173,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const [projectOpen, setProjectOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
   const [chatOpen, setChatOpen] = useState(false);
+  const [noticesOpen, setNoticesOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
   const [pendingCounts, setPendingCounts] = useState({ estimates: 0, inquiries: 0, providerRequests: 0, projects: 0, chatUnread: 0 });
   const pathname = usePathname();
@@ -183,6 +184,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const isOnBidMonitor = pathname === "/admin/bid-monitor" || pathname.startsWith("/admin/bid-monitor/");
   const isOnProviders = pathname === "/admin/providers" || pathname.startsWith("/admin/providers/");
   const isOnChat = pathname === "/admin/chat" || pathname.startsWith("/admin/chat/");
+  const isOnNotices = pathname.startsWith("/admin/notices/");
 
   // 프로젝트 관련 페이지에 있으면 자동 펼치기
   useEffect(() => {
@@ -198,6 +200,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnChat) setChatOpen(true);
   }, [isOnChat]);
+
+  // 공지사항 페이지에 있으면 자동 펼치기
+  useEffect(() => {
+    if (isOnNotices) setNoticesOpen(true);
+  }, [isOnNotices]);
 
   useEffect(() => {
     if (skipNextWriteRef.current) {
@@ -668,8 +675,84 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             </li>
 
+            {/* 공지사항 — 아코디언 */}
+            <li>
+              {showCollapsed ? (
+                <Link
+                  href="/admin/notices/provider"
+                  onClick={closeSidebar}
+                  className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
+                    ${isOnNotices ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  title="공지사항"
+                >
+                  <span className={isOnNotices ? "text-indigo-500" : "text-gray-400"}>
+                    {NAV_ITEMS.find((n) => n.href === "/admin/notices")?.icon ?? (
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                        <line x1="12" y1="9" x2="12" y2="13" />
+                        <line x1="12" y1="17" x2="12.01" y2="17" />
+                      </svg>
+                    )}
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setNoticesOpen((v) => !v)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${isOnNotices ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  >
+                    <span className={isOnNotices ? "text-indigo-500" : "text-gray-400"}>
+                      {NAV_ITEMS.find((n) => n.href === "/admin/notices")?.icon ?? (
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                          <line x1="12" y1="9" x2="12" y2="13" />
+                          <line x1="12" y1="17" x2="12.01" y2="17" />
+                        </svg>
+                      )}
+                    </span>
+                    <span className="flex-1 text-left">공지사항</span>
+                    <svg
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      className={`shrink-0 transition-transform duration-200 ${noticesOpen ? "rotate-180" : ""}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+
+                  {noticesOpen && (
+                    <ul className="mt-0.5 space-y-0.5 pl-9">
+                      <li>
+                        <Link
+                          href="/admin/notices/provider"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/notices/provider" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          시공업체 공지사항
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/admin/notices/consumer"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/notices/consumer" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          소비자 공지사항
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
+                </>
+              )}
+            </li>
+
             {/* 나머지 메뉴 */}
-            {NAV_ITEMS.slice(3).map((item) => {
+            {NAV_ITEMS.slice(3).filter((item) => item.href !== "/admin/notices").map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
               const badge =
                 item.href === "/admin/estimates" ? pendingCounts.estimates
