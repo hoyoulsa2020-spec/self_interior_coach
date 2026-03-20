@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { DashboardLayoutContext } from "./DashboardLayoutContext";
+import AdminChatBubble from "@/components/AdminChatBubble";
+import ConsumerProviderChatBubble from "@/components/ConsumerProviderChatBubble";
 
 const SIDEBAR_COLLAPSED_KEY = "dashboard-sidebar-collapsed";
 
@@ -12,7 +14,7 @@ type NavItem = {
   label: string;
   href?: string;
   icon: React.ReactNode;
-  children?: { label: string; href: string }[];
+  children?: { label: string; href: string; badgeKey?: string }[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -64,11 +66,28 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "실시간 채팅",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+    children: [
+      { label: "셀인코치", href: "/dashboard/chat", badgeKey: "chatUnread" },
+      { label: "시공업체와의 미팅", href: "/dashboard/provider-chat", badgeKey: "providerChatUnread" },
+      { label: "종료된 채팅 (셀인코치)", href: "/dashboard/chat/ended" },
+      { label: "종료된 채팅 (시공업체)", href: "/dashboard/provider-chat/ended" },
+    ],
+  },
+  {
     label: "셀인코치에게 문의",
     href: "/dashboard/consultations",
     icon: (
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <polyline points="14 2 14 8 20 8" />
+        <line x1="16" y1="13" x2="8" y2="13" />
+        <line x1="16" y1="17" x2="8" y2="17" />
       </svg>
     ),
   },
@@ -123,7 +142,12 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     }
   }, []);
   const [providersExpanded, setProvidersExpanded] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [providerChatUnreadCount, setProviderChatUnreadCount] = useState(0);
   const [userName, setUserName] = useState<string>("");
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userRole, setUserRole] = useState<string | null>(null);
   const pathname = usePathname();
   const initializedRef = useRef(false);
 
@@ -132,6 +156,95 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       setProvidersExpanded(true);
     }
   }, [pathname]);
+  useEffect(() => {
+    if (pathname === "/dashboard/chat" || pathname.startsWith("/dashboard/chat/") || pathname === "/dashboard/provider-chat" || pathname.startsWith("/dashboard/provider-chat/")) {
+      setChatExpanded(true);
+    }
+  }, [pathname]);
+
+  const loadChatUnreadCount = async (uid: string) => {
+    const { data: thread } = await supabase
+      .from("admin_chat_threads")
+      .select("user_read_at, user_cleared_at, ended_at, ended_by")
+      .eq("user_id", uid)
+      .eq("user_role", "consumer")
+      .is("ended_at", null)
+      .maybeSingle();
+    if (!thread) {
+      setChatUnreadCount(0);
+      return;
+    }
+    const clearedAt = thread.user_cleared_at ?? (thread.ended_by === "user" ? thread.ended_at : null);
+    const candidates = [clearedAt, thread.user_read_at].filter(Boolean) as string[];
+    const after = candidates.length > 0 ? candidates.sort()[candidates.length - 1] : null;
+    let q = supabase
+      .from("admin_chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", thread.id)
+      .eq("sender_role", "admin");
+    if (after) q = q.gt("created_at", after);
+    const { count } = await q;
+    setChatUnreadCount(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (!userId || userRole !== "consumer") return;
+    loadChatUnreadCount(userId);
+    const ch = supabase
+      .channel("dashboard-chat-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_threads" }, () => loadChatUnreadCount(userId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_messages" }, () => loadChatUnreadCount(userId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId, userRole]);
+
+  const loadProviderChatUnreadCount = async (uid: string) => {
+    const { data: projectsData } = await supabase.from("projects").select("id").eq("user_id", uid);
+    const projectIds = (projectsData ?? []).map((p) => p.id);
+    if (projectIds.length === 0) {
+      setProviderChatUnreadCount(0);
+      return;
+    }
+    const { data: assignData } = await supabase
+      .from("project_category_assignments")
+      .select("provider_id")
+      .in("project_id", projectIds)
+      .eq("match_status", "completed");
+    const providerIds = [...new Set((assignData ?? []).map((r) => r.provider_id))];
+    let total = 0;
+    for (const pid of providerIds) {
+      const { data: thread } = await supabase
+        .from("consumer_provider_chat_threads")
+        .select("id, consumer_read_at, consumer_cleared_at, ended_at, ended_by")
+        .eq("consumer_id", uid)
+        .eq("provider_id", pid)
+        .maybeSingle();
+      if (!thread) continue;
+      const clearedAt = thread.consumer_cleared_at ?? (thread.ended_by === "consumer" ? thread.ended_at : null);
+      const candidates = [clearedAt, thread.consumer_read_at].filter(Boolean) as string[];
+      const after = candidates.length > 0 ? candidates.sort()[candidates.length - 1] : null;
+      let q = supabase
+        .from("consumer_provider_chat_messages")
+        .select("id", { count: "exact", head: true })
+        .eq("thread_id", thread.id)
+        .eq("sender_role", "provider");
+      if (after) q = q.gt("created_at", after);
+      const { count } = await q;
+      total += count ?? 0;
+    }
+    setProviderChatUnreadCount(total);
+  };
+
+  useEffect(() => {
+    if (!userId || userRole !== "consumer") return;
+    loadProviderChatUnreadCount(userId);
+    const ch = supabase
+      .channel("dashboard-provider-chat-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "consumer_provider_chat_threads" }, () => loadProviderChatUnreadCount(userId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "consumer_provider_chat_messages" }, () => loadProviderChatUnreadCount(userId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId, userRole]);
 
   useEffect(() => {
     if (skipNextWriteRef.current) {
@@ -175,6 +288,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         return;
       }
       setUserName(profile.name || session.user.email?.split("@")[0] || "회원");
+      setUserId(session.user.id);
+      setUserRole(profile.role);
     };
     init();
   }, []);
@@ -308,10 +423,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           <ul className="space-y-0.5">
             {NAV_ITEMS.map((item) => {
               if (item.children) {
-                const isExpanded = item.label === "시공업체 견적확인" ? providersExpanded : true;
-                const toggleExpanded = item.label === "시공업체 견적확인" ? () => setProvidersExpanded((p) => !p) : undefined;
+                const isExpanded = item.label === "시공업체 견적확인" ? providersExpanded : item.label === "실시간 채팅" ? chatExpanded : true;
+                const toggleExpanded = item.label === "시공업체 견적확인" ? () => setProvidersExpanded((p) => !p) : item.label === "실시간 채팅" ? () => setChatExpanded((c) => !c) : undefined;
                 const firstChildHref = item.children[0]?.href;
                 const isChildActive = item.children.some((c) => pathname === c.href || pathname.startsWith(c.href + "/"));
+                const badgeCount = item.label === "실시간 채팅" ? chatUnreadCount + providerChatUnreadCount : 0;
 
                 if (showCollapsed) {
                   return (
@@ -323,7 +439,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                           ${isChildActive ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
                         title={item.label}
                       >
-                        <span className={isChildActive ? "text-indigo-500" : "text-gray-400"}>{item.icon}</span>
+                        <span className="relative shrink-0">
+                          <span className={isChildActive ? "text-indigo-500" : "text-gray-400"}>{item.icon}</span>
+                          {badgeCount > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                              {badgeCount > 99 ? "99+" : badgeCount}
+                            </span>
+                          )}
+                        </span>
                       </Link>
                     </li>
                   );
@@ -337,7 +460,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left text-sm font-medium text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                     >
                       <div className="flex items-center gap-3">
-                        <span className="text-gray-400">{item.icon}</span>
+                        <span className="relative shrink-0">
+                          <span className="text-gray-400">{item.icon}</span>
+                          {badgeCount > 0 && (
+                            <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                              {badgeCount > 99 ? "99+" : badgeCount}
+                            </span>
+                          )}
+                        </span>
                         {item.label}
                       </div>
                       <span className={`shrink-0 text-gray-400 transition-transform ${isExpanded ? "rotate-180" : ""}`}>
@@ -350,15 +480,22 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                       <ul className="mt-0.5 ml-6 space-y-0.5 border-l border-gray-200 pl-3">
                         {item.children.map((child) => {
                           const isActive = pathname === child.href;
+                          const childBadge = child.badgeKey === "chatUnread" ? chatUnreadCount
+                            : child.badgeKey === "providerChatUnread" ? providerChatUnreadCount : 0;
                           return (
                             <li key={child.href}>
                               <Link
                                 href={child.href}
                                 onClick={closeSidebar}
-                                className={`block rounded-lg px-2.5 py-2 text-xs font-medium transition
+                                className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition
                                   ${isActive ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
                               >
                                 {child.label}
+                                {childBadge > 0 && (
+                                  <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                    {childBadge > 99 ? "99+" : childBadge}
+                                  </span>
+                                )}
                               </Link>
                             </li>
                           );
@@ -419,6 +556,15 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <main className={`min-h-screen pt-14 ${mainPl}`}>
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+
+      {/* 셀인코치 채팅 말풍선 (소비자만, 채팅 페이지 제외) */}
+      {userRole === "consumer" && userId && !pathname?.startsWith("/dashboard/chat") && !pathname?.startsWith("/dashboard/provider-chat") && (
+        <AdminChatBubble userRole="consumer" userId={userId} />
+      )}
+      {/* 시공업체와의 미팅 말풍선 (소비자만, 채팅 페이지 제외) */}
+      {userRole === "consumer" && userId && !pathname?.startsWith("/dashboard/chat") && !pathname?.startsWith("/dashboard/provider-chat") && (
+        <ConsumerProviderChatBubble userRole="consumer" userId={userId} />
+      )}
     </div>
     </DashboardLayoutContext.Provider>
   );

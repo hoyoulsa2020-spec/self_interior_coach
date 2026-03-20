@@ -66,7 +66,7 @@ export default function AlertModal({ title = "알림", message, onClose, variant
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-[95] flex items-center justify-center bg-black/50 px-4" onClick={onClose}>
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={onClose}>
       <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className={`flex h-12 w-12 items-center justify-center rounded-full ${config.iconBg} ${config.iconColor}`}>
           <Icon />

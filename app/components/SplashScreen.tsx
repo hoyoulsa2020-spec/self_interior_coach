@@ -8,25 +8,31 @@ const SPLASH_DURATION_MS = 5000;
 const FADE_OUT_MS = 500;
 
 async function getRedirectPath(): Promise<string> {
-  const { data: userData, error: getUserError } = await supabase.auth.getUser();
-  if (getUserError || !userData.user) return "/login";
+  try {
+    const { data } = await supabase.auth.getSession();
+    const session = data?.session;
+    if (!session?.user) return "/login";
 
-  const { data: profile, error: profileError } = await supabase
-    .from("profiles")
-    .select("role, onboarding_completed")
-    .eq("user_id", userData.user.id)
-    .maybeSingle();
+    const { data: profile, error: profileError } = await supabase
+      .from("profiles")
+      .select("role, onboarding_completed")
+      .eq("user_id", session.user.id)
+      .maybeSingle();
 
-  if (profileError) return "/login";
+    if (profileError) return "/login";
 
-  const role = profile?.role ?? "consumer";
+    const role = profile?.role ?? "consumer";
 
-  if (role === "admin" || role === "super_admin") return "/admin";
-  if (role === "provider") {
-    if (!profile?.onboarding_completed) return "/provider/onboarding";
-    return "/provider/dashboard";
+    if (role === "admin" || role === "super_admin") return "/admin";
+    if (role === "provider") {
+      if (!profile?.onboarding_completed) return "/provider/onboarding";
+      return "/provider/dashboard";
+    }
+    return "/dashboard";
+  } catch {
+    await supabase.auth.signOut({ scope: "local" });
+    return "/login";
   }
-  return "/dashboard";
 }
 
 export default function SplashScreen() {

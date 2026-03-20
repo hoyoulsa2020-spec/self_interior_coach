@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabaseAdmin";
-import { sendPushToUser, sendPushToAll, initWebPush } from "@/lib/webPush";
+import { sendPushToAdmins, initWebPush } from "@/lib/webPush";
 
-/** 관리자 전용: 푸시 발송 (테스트 또는 공지) */
+/** 소비자/공급업체가 실시간 채팅 메시지 전송 시 관리자들에게 푸시 발송 */
 export async function POST(request: NextRequest) {
   const authHeader = request.headers.get("authorization");
   const token = authHeader?.replace("Bearer ", "");
@@ -23,35 +23,28 @@ export async function POST(request: NextRequest) {
     .eq("user_id", user.id)
     .maybeSingle();
 
-  if (profile?.role !== "admin" && profile?.role !== "super_admin") {
-    return NextResponse.json({ error: "관리자만 사용할 수 있습니다." }, { status: 403 });
+  if (profile?.role !== "consumer" && profile?.role !== "provider") {
+    return NextResponse.json({ error: "소비자 또는 공급업체만 호출할 수 있습니다." }, { status: 403 });
   }
 
   if (!process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || !process.env.VAPID_PRIVATE_KEY) {
     return NextResponse.json(
-      { error: "VAPID 키가 설정되지 않았습니다. .env에 NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_PRIVATE_KEY를 추가하세요." },
+      { error: "VAPID 키가 설정되지 않았습니다." },
       { status: 500 }
     );
   }
 
-  let data: { userId?: string; title?: string; body?: string; url?: string };
-  try {
-    data = await request.json();
-  } catch {
-    return NextResponse.json({ error: "잘못된 요청입니다." }, { status: 400 });
-  }
-
-  const { userId, title = "셀인코치", body = "테스트 알림입니다.", url = "/" } = data;
-
   try {
     initWebPush();
-    let result: { ok: number; fail: number };
-
-    if (userId) {
-      result = await sendPushToUser(userId, { title, body, url }, "admin-send");
-    } else {
-      result = await sendPushToAll({ title, body, url }, "admin-send");
-    }
+    const result = await sendPushToAdmins(
+      {
+        title: "셀인코치",
+        body: "새 채팅 메시지가 도착했습니다.",
+        url: "/admin/chat",
+        tag: "selco-chat",
+      },
+      "chat-notify"
+    );
 
     return NextResponse.json({
       success: true,
@@ -59,7 +52,7 @@ export async function POST(request: NextRequest) {
       failed: result.fail,
     });
   } catch (e) {
-    console.error("[push/send]", e);
+    console.error("[push/chat-notify]", e);
     return NextResponse.json({ error: "푸시 발송에 실패했습니다." }, { status: 500 });
   }
 }

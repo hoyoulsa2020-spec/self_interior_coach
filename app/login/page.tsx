@@ -73,7 +73,8 @@ export default function LoginPage() {
 
     if (getUserError || !userData.user) {
       console.error("[redirectByRole] 유저 조회 실패:", getUserError);
-      window.location.href = "/dashboard";
+      await supabase.auth.signOut({ scope: "local" });
+      window.location.href = "/login";
       return;
     }
 

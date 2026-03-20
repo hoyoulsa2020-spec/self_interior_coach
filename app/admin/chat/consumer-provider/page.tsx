@@ -1,0 +1,413 @@
+"use client";
+
+import { useEffect, useState, useRef, useCallback } from "react";
+import { useRouter } from "next/navigation";
+import { supabase } from "@/lib/supabaseClient";
+import type { RealtimeChannel } from "@supabase/supabase-js";
+import { compressImage } from "@/lib/imageCompress";
+import ChatImageLightbox from "@/components/ChatImageLightbox";
+import AlertModal from "@/components/AlertModal";
+
+type UserItem = {
+  user_id: string;
+  role: string;
+  name: string | null;
+  business_name: string | null;
+  email: string | null;
+};
+
+type Thread = {
+  id: string;
+  user_id: string;
+  user_role: string;
+  updated_at: string;
+  admin_read_at: string | null;
+  ended_at: string | null;
+  ended_by: string | null;
+  profiles?: { name: string | null; business_name: string | null; email: string | null } | null;
+  unreadCount?: number;
+};
+
+type Message = {
+  id: string;
+  content: string;
+  sender_role: string;
+  sender_id: string;
+  created_at: string;
+  image_urls?: string[] | null;
+};
+
+type TabType = "consumer" | "provider";
+
+export default function AdminConsumerProviderChatPage() {
+  const router = useRouter();
+  const [activeTab, setActiveTab] = useState<TabType | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState<UserItem[]>([]);
+  const [searching, setSearching] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<UserItem | null>(null);
+  const [selectedThread, setSelectedThread] = useState<Thread | null>(null);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [messagesLoading, setMessagesLoading] = useState(false);
+  const [sending, setSending] = useState(false);
+  const [adminId, setAdminId] = useState<string | null>(null);
+  const [pendingImages, setPendingImages] = useState<File[]>([]);
+  const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
+  const [alertMessage, setAlertMessage] = useState<string | null>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const channelRef = useRef<RealtimeChannel | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const searchTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  useEffect(() => { scrollToBottom(); }, [messages]);
+
+  useEffect(() => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession();
+      const session = data?.session;
+      if (!session) {
+        router.push("/login");
+        return;
+      }
+      const { data: profile } = await supabase.from("profiles").select("role").eq("user_id", session.user.id).maybeSingle();
+      if (!profile || !["admin", "super_admin"].includes(profile.role)) {
+        router.push("/login");
+        return;
+      }
+      setAdminId(session.user.id);
+    };
+    init();
+  }, [router]);
+
+  const searchUsers = useCallback(async (role: TabType, q: string) => {
+    if (!role) {
+      setSearchResults([]);
+      return;
+    }
+    setSearching(true);
+    let query = supabase
+      .from("profiles")
+      .select("user_id, role, name, business_name, email")
+      .eq("role", role);
+    if (q.trim()) {
+      const term = `%${q.trim()}%`;
+      query = query.or(`name.ilike.${term},business_name.ilike.${term},email.ilike.${term}`);
+    }
+    const orderCol = role === "provider" ? "business_name" : "name";
+    const { data } = await query.order(orderCol, { nullsFirst: false }).limit(50);
+    setSearchResults((data ?? []) as UserItem[]);
+    setSearching(false);
+  }, []);
+
+  useEffect(() => {
+    if (!activeTab) {
+      setSearchResults([]);
+      return;
+    }
+    if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    searchTimeoutRef.current = setTimeout(() => searchUsers(activeTab, searchQuery), searchQuery.trim() ? 300 : 0);
+    return () => {
+      if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
+    };
+  }, [activeTab, searchQuery, searchUsers]);
+
+  const ensureThread = async (userId: string, userRole: string): Promise<string | null> => {
+    const { data: existing } = await supabase
+      .from("admin_chat_threads")
+      .select("id")
+      .eq("user_id", userId)
+      .eq("user_role", userRole)
+      .is("ended_at", null)
+      .maybeSingle();
+    if (existing) return existing.id;
+    const { data: inserted, error } = await supabase
+      .from("admin_chat_threads")
+      .insert({ user_id: userId, user_role: userRole })
+      .select("id")
+      .single();
+    if (error) {
+      console.error("Thread create error:", error);
+      return null;
+    }
+    return inserted?.id ?? null;
+  };
+
+  const selectUserAndOpenChat = async (u: UserItem) => {
+    setSelectedUser(u);
+    setSearchQuery("");
+    setLoading(true);
+    const threadId = await ensureThread(u.user_id, u.role);
+    setLoading(false);
+    if (!threadId) {
+      setAlertMessage("채팅방을 열 수 없습니다.");
+      return;
+    }
+    const thread: Thread = {
+      id: threadId,
+      user_id: u.user_id,
+      user_role: u.role,
+      updated_at: new Date().toISOString(),
+      admin_read_at: null,
+      ended_at: null,
+      ended_by: null,
+      profiles: { name: u.name, business_name: u.business_name, email: u.email },
+      unreadCount: 0,
+    };
+    setSelectedThread(thread);
+  };
+
+  const loadMessages = async (threadId: string) => {
+    setMessagesLoading(true);
+    const { data } = await supabase
+      .from("admin_chat_messages")
+      .select("id, content, sender_role, sender_id, created_at, image_urls")
+      .eq("thread_id", threadId)
+      .order("created_at", { ascending: true });
+    setMessages(data ?? []);
+    setMessagesLoading(false);
+  };
+
+  useEffect(() => {
+    if (!selectedThread) {
+      setMessages([]);
+      setMessagesLoading(false);
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+      return;
+    }
+    setMessages([]);
+    setMessagesLoading(true);
+    loadMessages(selectedThread.id);
+    supabase.from("admin_chat_threads").update({ admin_read_at: new Date().toISOString() }).eq("id", selectedThread.id).then(() => {});
+
+    const tid = selectedThread.id;
+    const ch = supabase
+      .channel(`admin-cp-chat-${tid}`)
+      .on("postgres_changes", { event: "INSERT", schema: "public", table: "admin_chat_messages", filter: `thread_id=eq.${tid}` }, () => loadMessages(tid))
+      .subscribe();
+    channelRef.current = ch;
+    return () => {
+      if (channelRef.current) {
+        supabase.removeChannel(channelRef.current);
+        channelRef.current = null;
+      }
+    };
+  }, [selectedThread?.id]);
+
+  const sendMessage = async () => {
+    const text = input.trim();
+    const hasImages = pendingImages.length > 0;
+    if ((!text && !hasImages) || !selectedThread || !adminId || sending) return;
+
+    setSending(true);
+    const imageUrls: string[] = [];
+    for (const file of pendingImages) {
+      const blob = await compressImage(file);
+      const path = `${adminId}/${Date.now()}_${Math.random().toString(36).slice(2)}.jpg`;
+      const { error: uploadError } = await supabase.storage.from("chat-images").upload(path, blob, { contentType: "image/jpeg" });
+      if (uploadError) {
+        setAlertMessage("이미지 업로드에 실패했습니다.");
+        setSending(false);
+        return;
+      }
+      const { data: urlData } = supabase.storage.from("chat-images").getPublicUrl(path);
+      imageUrls.push(urlData.publicUrl);
+    }
+
+    const { error } = await supabase.from("admin_chat_messages").insert({
+      thread_id: selectedThread.id,
+      sender_id: adminId,
+      sender_role: "admin",
+      content: text || " ",
+      image_urls: imageUrls.length > 0 ? imageUrls : undefined,
+    });
+
+    if (!error) {
+      setInput("");
+      setPendingImages([]);
+      await loadMessages(selectedThread.id);
+      try {
+        const { data } = await supabase.auth.getSession();
+        if (data?.session?.access_token) {
+          await fetch("/api/push/chat-reply", {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${data.session.access_token}` },
+            body: JSON.stringify({ userId: selectedThread.user_id }),
+          });
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+    setSending(false);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files ?? []).filter((f) => f.type.startsWith("image/"));
+    setPendingImages((prev) => {
+      const next = [...prev, ...files].slice(0, 3);
+      if (prev.length + files.length > 3) setAlertMessage("사진은 최대 3장까지입니다.");
+      return next;
+    });
+    e.target.value = "";
+  };
+
+  const getThreadLabel = (t: Thread) => {
+    const p = t.profiles;
+    const name = t.user_role === "provider" ? (p?.business_name || p?.name) : p?.name;
+    const roleLabel = t.user_role === "consumer" ? "소비자" : "공급업체";
+    return `${name || "알 수 없음"} (${roleLabel})`;
+  };
+
+  return (
+    <div className="flex h-[calc(100vh-8rem)] gap-4">
+      <div className="flex w-72 shrink-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+        <div className="border-b border-gray-200 px-4 py-3">
+          <h2 className="text-sm font-semibold text-gray-800">회원들에게 채팅하기</h2>
+          <p className="mt-0.5 text-xs text-gray-500">관리자가 먼저 말걸 수 있습니다</p>
+        </div>
+        <div className="flex border-b border-gray-100">
+          <button
+            type="button"
+            onClick={() => { setActiveTab("consumer"); setSearchQuery(""); setSearchResults([]); }}
+            className={`flex-1 px-4 py-2.5 text-sm font-medium transition ${activeTab === "consumer" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            소비자
+          </button>
+          <button
+            type="button"
+            onClick={() => { setActiveTab("provider"); setSearchQuery(""); setSearchResults([]); }}
+            className={`flex-1 px-4 py-2.5 text-sm font-medium transition ${activeTab === "provider" ? "border-b-2 border-indigo-600 text-indigo-600" : "text-gray-500 hover:bg-gray-50"}`}
+          >
+            시공업체
+          </button>
+        </div>
+        {activeTab && (
+          <>
+            <div className="border-b border-gray-100 p-3">
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={activeTab === "consumer" ? "이름, 이메일 검색" : "업체명, 이름, 이메일 검색"}
+                className="w-full rounded-lg border border-gray-200 px-3 py-2 text-sm outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              {searching ? (
+                <div className="p-4 text-center text-sm text-gray-500">검색 중...</div>
+              ) : searchResults.length === 0 ? (
+                <div className="flex flex-col items-center justify-center p-8 text-center text-sm text-gray-500">
+                  <p>{activeTab === "consumer" ? "소비자" : "시공업체"} 목록을 불러오는 중이거나</p>
+                  <p className="mt-1">검색 결과가 없습니다.</p>
+                </div>
+              ) : (
+                <ul className="divide-y divide-gray-100">
+                  {searchResults.map((u) => (
+                    <li key={u.user_id}>
+                      <button
+                        type="button"
+                        onClick={() => selectUserAndOpenChat(u)}
+                        className={`w-full px-4 py-3 text-left text-sm transition ${selectedThread?.user_id === u.user_id ? "bg-indigo-50 text-indigo-700" : "hover:bg-gray-50"}`}
+                      >
+                        <p className="font-medium">{u.role === "provider" ? (u.business_name || u.name) : u.name}</p>
+                        {u.email && <p className="mt-0.5 text-xs text-gray-500">{u.email}</p>}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          </>
+        )}
+        {!activeTab && (
+          <div className="flex flex-1 flex-col items-center justify-center p-8 text-center text-sm text-gray-500">
+            <p>소비자 또는 시공업체를 선택한 후</p>
+            <p className="mt-1">검색하여 대화할 회원을 찾으세요.</p>
+          </div>
+        )}
+      </div>
+
+      <div className="flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
+        {selectedThread ? (
+          <>
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
+              <h3 className="text-base font-semibold text-gray-800">{getThreadLabel(selectedThread)}</h3>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loading || messagesLoading ? (
+                <div className="flex flex-col items-center justify-center py-16">
+                  <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
+                  <p className="mt-3 text-sm text-gray-500">채팅 불러오는 중...</p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {messages.map((m) => {
+                    const isAdmin = m.sender_role === "admin";
+                    const urls = (m.image_urls ?? []).filter(Boolean);
+                    return (
+                      <div key={m.id} className={`flex ${isAdmin ? "justify-end" : "justify-start"}`}>
+                        <div className={`max-w-[75%] rounded-2xl px-4 py-2 text-sm ${isAdmin ? "bg-indigo-600 text-white" : "bg-gray-100 text-gray-800"}`}>
+                          {m.content.trim() !== "" && m.content !== " " && <p className="whitespace-pre-wrap break-words">{m.content}</p>}
+                          {urls.length > 0 && (
+                            <div className="mt-1.5 flex flex-wrap gap-1">
+                              {urls.map((url, i) => (
+                                <button key={url} type="button" onClick={() => setLightbox({ urls, index: i })} className="overflow-hidden rounded-lg border border-white/20">
+                                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                                  <img src={url} alt="" className="h-14 w-14 object-cover" />
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                          <p className={`mt-1 text-[10px] ${isAdmin ? "text-indigo-200" : "text-gray-400"}`}>
+                            {new Date(m.created_at).toLocaleString("ko-KR", { month: "numeric", day: "numeric", hour: "2-digit", minute: "2-digit" })}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div ref={messagesEndRef} />
+                </div>
+              )}
+            </div>
+            <div className="shrink-0 border-t border-gray-200 p-3">
+              {pendingImages.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1">
+                  {pendingImages.map((f, i) => (
+                    <div key={i} className="relative">
+                      <img src={URL.createObjectURL(f)} alt="" className="h-12 w-12 rounded-lg object-cover" />
+                      <button type="button" onClick={() => setPendingImages((p) => p.filter((_, j) => j !== i))} className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white">×</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handleFileChange} />
+                <button type="button" onClick={() => fileInputRef.current?.click()} disabled={pendingImages.length >= 3} className="shrink-0 rounded-xl border border-gray-200 px-3 py-2.5 text-gray-500 hover:bg-gray-50 disabled:opacity-50" title="이미지 첨부 (최대 3장)">
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><rect x="3" y="3" width="18" height="18" rx="2" /><circle cx="8.5" cy="8.5" r="1.5" /><polyline points="21 15 16 10 5 21" /></svg>
+                </button>
+                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && sendMessage()} placeholder="메시지를 입력하세요..." className="flex-1 rounded-xl border border-gray-200 px-4 py-2.5 text-sm outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500" />
+                <button type="button" onClick={sendMessage} disabled={(!input.trim() && pendingImages.length === 0) || sending} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">전송</button>
+              </div>
+            </div>
+          </>
+        ) : (
+          <div className="flex flex-1 flex-col items-center justify-center text-gray-500">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="mb-4 opacity-50">
+              <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+            </svg>
+            <p className="text-sm">왼쪽에서 소비자 또는 시공업체를 선택한 후</p>
+            <p className="mt-1 text-sm">목록에서 대화할 회원을 선택하세요</p>
+          </div>
+        )}
+      </div>
+      {lightbox && <ChatImageLightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
+      {alertMessage && <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} variant="warning" />}
+    </div>
+  );
+}

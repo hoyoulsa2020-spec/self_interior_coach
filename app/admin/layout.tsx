@@ -161,8 +161,9 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   }, []);
   const [projectOpen, setProjectOpen] = useState(false);
   const [providerOpen, setProviderOpen] = useState(false);
+  const [chatOpen, setChatOpen] = useState(false);
   const [categories, setCategories] = useState<string[]>([]);
-  const [pendingCounts, setPendingCounts] = useState({ estimates: 0, inquiries: 0, providerRequests: 0, projects: 0 });
+  const [pendingCounts, setPendingCounts] = useState({ estimates: 0, inquiries: 0, providerRequests: 0, projects: 0, chatUnread: 0 });
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const activeCategoryParam = searchParams.get("category");
@@ -170,6 +171,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   const isOnProjects = pathname === "/admin/projects" || pathname.startsWith("/admin/projects/");
   const isOnBidMonitor = pathname === "/admin/bid-monitor" || pathname.startsWith("/admin/bid-monitor/");
   const isOnProviders = pathname === "/admin/providers" || pathname.startsWith("/admin/providers/");
+  const isOnChat = pathname === "/admin/chat" || pathname.startsWith("/admin/chat/");
 
   // 프로젝트 관련 페이지에 있으면 자동 펼치기
   useEffect(() => {
@@ -180,6 +182,11 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isOnProviders) setProviderOpen(true);
   }, [isOnProviders]);
+
+  // 채팅 페이지에 있으면 자동 펼치기
+  useEffect(() => {
+    if (isOnChat) setChatOpen(true);
+  }, [isOnChat]);
 
   useEffect(() => {
     if (skipNextWriteRef.current) {
@@ -221,17 +228,19 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
   // 초기 조회 + 실시간 구독
   useEffect(() => {
     const load = async () => {
-      const [estimatesRes, inquiriesRes, providerRes, projectsRes] = await Promise.all([
+      const [estimatesRes, inquiriesRes, providerRes, projectsRes, chatRes] = await Promise.all([
         supabase.from("estimate_reviews").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("inquiries").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("provider_inquiries").select("id", { count: "exact", head: true }).eq("status", "pending"),
         supabase.from("projects").select("id", { count: "exact", head: true }).in("status", ["pending", "publish_requested"]).is("scheduled_delete_at", null),
+        supabase.from("admin_chat_threads").select("id", { count: "exact", head: true }).is("ended_at", null).in("last_sender_role", ["consumer", "provider"]),
       ]);
       setPendingCounts({
         estimates: estimatesRes.count ?? 0,
         inquiries: inquiriesRes.count ?? 0,
         providerRequests: providerRes.count ?? 0,
         projects: projectsRes.count ?? 0,
+        chatUnread: chatRes.count ?? 0,
       });
     };
 
@@ -243,6 +252,8 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
       .on("postgres_changes", { event: "*", schema: "public", table: "inquiries" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "provider_inquiries" }, load)
       .on("postgres_changes", { event: "*", schema: "public", table: "projects" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_threads" }, load)
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_messages" }, load)
       .subscribe();
 
     return () => { supabase.removeChannel(channel); };
@@ -530,6 +541,99 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
               )}
             </li>
 
+            {/* 실시간 채팅 — 아코디언 */}
+            <li>
+              {showCollapsed ? (
+                <Link
+                  href="/admin/chat"
+                  onClick={closeSidebar}
+                  className={`flex w-full items-center justify-center rounded-xl px-0 py-2.5 lg:justify-center
+                    ${pathname === "/admin/chat" ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  title="실시간 채팅"
+                >
+                  <span className="relative shrink-0">
+                    <span className={pathname === "/admin/chat" ? "text-indigo-500" : "text-gray-400"}>
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                      </svg>
+                    </span>
+                    {pendingCounts.chatUnread > 0 && (
+                      <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                        {pendingCounts.chatUnread > 99 ? "99+" : pendingCounts.chatUnread}
+                      </span>
+                    )}
+                  </span>
+                </Link>
+              ) : (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setChatOpen((v) => !v)}
+                    className={`flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition
+                      ${isOnChat ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
+                  >
+                    <span className="relative shrink-0">
+                      <span className={isOnChat ? "text-indigo-500" : "text-gray-400"}>
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                        </svg>
+                      </span>
+                      {pendingCounts.chatUnread > 0 && (
+                        <span className="absolute -right-1 -top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                          {pendingCounts.chatUnread > 99 ? "99+" : pendingCounts.chatUnread}
+                        </span>
+                      )}
+                    </span>
+                    <span className="flex-1 text-left">실시간 채팅</span>
+                    <svg
+                      width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"
+                      className={`shrink-0 transition-transform duration-200 ${chatOpen ? "rotate-180" : ""}`}
+                    >
+                      <polyline points="6 9 12 15 18 9" />
+                    </svg>
+                  </button>
+
+                  {chatOpen && (
+                    <ul className="mt-0.5 space-y-0.5 pl-9">
+                      <li>
+                        <Link
+                          href="/admin/chat"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/chat" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          실시간 채팅
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/admin/chat/ended"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/chat/ended" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          종료된 채팅
+                        </Link>
+                      </li>
+                      <li>
+                        <Link
+                          href="/admin/chat/consumer-provider"
+                          onClick={closeSidebar}
+                          className={`flex items-center gap-2 rounded-lg px-3 py-2 text-xs font-medium transition
+                            ${pathname === "/admin/chat/consumer-provider" ? "text-indigo-600 bg-indigo-50" : "text-gray-500 hover:bg-gray-100 hover:text-gray-800"}`}
+                        >
+                          <span className="h-1.5 w-1.5 rounded-full bg-current opacity-60" />
+                          회원들에게 채팅하기
+                        </Link>
+                      </li>
+                    </ul>
+                  )}
+                </>
+              )}
+            </li>
+
             {/* 나머지 메뉴 */}
             {NAV_ITEMS.slice(3).map((item) => {
               const isActive = pathname === item.href || pathname.startsWith(item.href + "/");
@@ -537,6 +641,7 @@ function AdminLayoutInner({ children }: { children: React.ReactNode }) {
                 item.href === "/admin/estimates" ? pendingCounts.estimates
                 : item.href === "/admin/customer-requests" ? pendingCounts.inquiries
                 : item.href === "/admin/provider-requests" ? pendingCounts.providerRequests
+                : item.href === "/admin/chat" ? pendingCounts.chatUnread
                 : 0;
               return (
                 <li key={item.href}>

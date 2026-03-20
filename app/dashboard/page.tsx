@@ -127,11 +127,11 @@ export default function DashboardPage() {
         }
       >
         {isLoading ? (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {[1, 2, 3].map((i) => <div key={i} className="h-28 animate-pulse rounded-2xl bg-gray-100" />)}
           </div>
         ) : activeProjects.length === 0 ? (
-          <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-14 text-center">
+          <div className="mx-auto flex max-w-md flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 bg-white py-14 text-center">
             <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-indigo-50 text-indigo-400">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
                 <rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" />
@@ -149,7 +149,7 @@ export default function DashboardPage() {
             </button>
           </div>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {activeProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
           </div>
         )}
@@ -167,7 +167,7 @@ export default function DashboardPage() {
             </Link>
           }
         >
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="mx-auto grid max-w-5xl grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {otherProjects.map((p) => <ProjectCard key={p.id} project={p} />)}
           </div>
         </CollapsiblePanel>
@@ -189,7 +189,7 @@ export default function DashboardPage() {
 function ProjectCard({ project }: { project: Project }) {
   const statusInfo = STATUS_LABEL[project.status] ?? { label: project.status, color: "bg-gray-100 text-gray-500" };
   return (
-    <Link href="/dashboard/projects" className="flex flex-col justify-between rounded-2xl border border-gray-200 bg-white p-4 shadow-sm transition hover:shadow-md hover:border-indigo-200 block">
+    <Link href="/dashboard/projects" className="flex flex-col justify-between rounded-2xl bg-white p-4 shadow-sm transition hover:shadow-md block">
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm font-semibold text-gray-800 leading-snug line-clamp-2">{project.title || "제목 없음"}</p>
         <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${statusInfo.color}`}>{statusInfo.label}</span>

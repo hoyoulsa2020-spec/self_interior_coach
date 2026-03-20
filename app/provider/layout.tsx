@@ -5,6 +5,8 @@ import { usePathname } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { ProviderLayoutContext } from "./ProviderLayoutContext";
+import AdminChatBubble from "@/components/AdminChatBubble";
+import ConsumerProviderChatBubble from "@/components/ConsumerProviderChatBubble";
 
 const SIDEBAR_COLLAPSED_KEY = "provider-sidebar-collapsed";
 
@@ -13,7 +15,7 @@ type NavItem = {
   href?: string;
   icon: React.ReactNode;
   badgeKey?: string;
-  children?: { label: string; href: string }[];
+  children?: { label: string; href: string; badgeKey?: string }[];
 };
 
 const NAV_ITEMS: NavItem[] = [
@@ -72,6 +74,20 @@ const NAV_ITEMS: NavItem[] = [
     ),
   },
   {
+    label: "실시간 채팅",
+    icon: (
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+      </svg>
+    ),
+    children: [
+      { label: "셀인코치", href: "/provider/chat", badgeKey: "chatUnread" },
+      { label: "소비자와의 채팅", href: "/provider/consumer-chat", badgeKey: "consumerChatUnread" },
+      { label: "종료된 채팅 (셀인코치)", href: "/provider/chat/ended" },
+      { label: "종료된 채팅 (소비자)", href: "/provider/consumer-chat/ended" },
+    ],
+  },
+  {
     label: "셀인코치에게 문의",
     href: "/provider/contact",
     icon: (
@@ -123,6 +139,9 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
   }, []);
   const [projectsExpanded, setProjectsExpanded] = useState(false);
   const [estimatesExpanded, setEstimatesExpanded] = useState(false);
+  const [chatExpanded, setChatExpanded] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [consumerChatUnreadCount, setConsumerChatUnreadCount] = useState(0);
   const [businessName, setBusinessName] = useState<string>("");
   const [userId, setUserId] = useState<string | null>(null);
   const [estimateWaitingCount, setEstimateWaitingCount] = useState(0);
@@ -140,6 +159,79 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       setEstimatesExpanded(true);
     }
   }, [pathname]);
+  useEffect(() => {
+    if (pathname === "/provider/chat" || pathname.startsWith("/provider/chat/") || pathname === "/provider/consumer-chat" || pathname.startsWith("/provider/consumer-chat/")) {
+      setChatExpanded(true);
+    }
+  }, [pathname]);
+
+  const loadChatUnreadCount = async (uid: string) => {
+    const { data: thread } = await supabase
+      .from("admin_chat_threads")
+      .select("user_read_at, user_cleared_at, ended_at, ended_by")
+      .eq("user_id", uid)
+      .eq("user_role", "provider")
+      .is("ended_at", null)
+      .maybeSingle();
+    if (!thread) {
+      setChatUnreadCount(0);
+      return;
+    }
+    const clearedAt = thread.user_cleared_at ?? (thread.ended_by === "user" ? thread.ended_at : null);
+    const candidates = [clearedAt, thread.user_read_at].filter(Boolean) as string[];
+    const after = candidates.length > 0 ? candidates.sort()[candidates.length - 1] : null;
+    let q = supabase
+      .from("admin_chat_messages")
+      .select("id", { count: "exact", head: true })
+      .eq("thread_id", thread.id)
+      .eq("sender_role", "admin");
+    if (after) q = q.gt("created_at", after);
+    const { count } = await q;
+    setChatUnreadCount(count ?? 0);
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    loadChatUnreadCount(userId);
+    const ch = supabase
+      .channel("provider-chat-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_threads" }, () => loadChatUnreadCount(userId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "admin_chat_messages" }, () => loadChatUnreadCount(userId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId]);
+
+  const loadConsumerChatUnreadCount = async (uid: string) => {
+    const { data: assignData } = await supabase.from("project_category_assignments").select("project_id").eq("provider_id", uid).eq("match_status", "completed");
+    const projectIds = (assignData ?? []).map((r) => r.project_id);
+    if (projectIds.length === 0) { setConsumerChatUnreadCount(0); return; }
+    const { data: projectsData } = await supabase.from("projects").select("user_id").in("id", projectIds);
+    const consumerIds = [...new Set((projectsData ?? []).map((p) => p.user_id).filter(Boolean))];
+    let total = 0;
+    for (const cid of consumerIds) {
+      const { data: thread } = await supabase.from("consumer_provider_chat_threads").select("id, provider_read_at, provider_cleared_at, ended_at, ended_by").eq("consumer_id", cid).eq("provider_id", uid).maybeSingle();
+      if (!thread) continue;
+      const clearedAt = thread.provider_cleared_at ?? (thread.ended_by === "provider" ? thread.ended_at : null);
+      const candidates = [clearedAt, thread.provider_read_at].filter(Boolean) as string[];
+      const after = candidates.length > 0 ? candidates.sort()[candidates.length - 1] : null;
+      let q = supabase.from("consumer_provider_chat_messages").select("id", { count: "exact", head: true }).eq("thread_id", thread.id).eq("sender_role", "consumer");
+      if (after) q = q.gt("created_at", after);
+      const { count } = await q;
+      total += count ?? 0;
+    }
+    setConsumerChatUnreadCount(total);
+  };
+
+  useEffect(() => {
+    if (!userId) return;
+    loadConsumerChatUnreadCount(userId);
+    const ch = supabase
+      .channel("provider-consumer-chat-unread")
+      .on("postgres_changes", { event: "*", schema: "public", table: "consumer_provider_chat_threads" }, () => loadConsumerChatUnreadCount(userId))
+      .on("postgres_changes", { event: "*", schema: "public", table: "consumer_provider_chat_messages" }, () => loadConsumerChatUnreadCount(userId))
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [userId]);
 
   useEffect(() => {
     if (skipNextWriteRef.current) {
@@ -388,12 +480,15 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                 const isExpanded =
                   item.label === "프로젝트 관리" ? projectsExpanded
                   : item.label === "공사금액제안" ? estimatesExpanded
+                  : item.label === "실시간 채팅" ? chatExpanded
                   : true;
                 const toggleExpanded =
                   item.label === "프로젝트 관리" ? () => setProjectsExpanded((p) => !p)
                   : item.label === "공사금액제안" ? () => setEstimatesExpanded((e) => !e)
+                  : item.label === "실시간 채팅" ? () => setChatExpanded((c) => !c)
                   : undefined;
-                const badgeCount = item.badgeKey === "estimateWaiting" ? estimateWaitingCount : 0;
+                const badgeCount = item.badgeKey === "estimateWaiting" ? estimateWaitingCount
+                  : item.label === "실시간 채팅" ? chatUnreadCount + consumerChatUnreadCount : 0;
                 const firstChildHref = item.children[0]?.href;
                 const isChildActive = item.children.some((c) => pathname === c.href || pathname.startsWith(c.href + "/"));
 
@@ -448,15 +543,22 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
                       <ul className="mt-0.5 ml-6 space-y-0.5 border-l border-gray-200 pl-3">
                         {item.children.map((child) => {
                           const isActive = pathname === child.href;
+                          const childBadge = child.badgeKey === "chatUnread" ? chatUnreadCount
+                            : child.badgeKey === "consumerChatUnread" ? consumerChatUnreadCount : 0;
                           return (
                             <li key={child.href}>
                               <Link
                                 href={child.href}
                                 onClick={closeSidebar}
-                                className={`block rounded-lg px-2.5 py-2 text-xs font-medium transition
+                                className={`flex items-center justify-between gap-2 rounded-lg px-2.5 py-2 text-xs font-medium transition
                                   ${isActive ? "bg-indigo-50 text-indigo-600" : "text-gray-600 hover:bg-gray-100 hover:text-gray-900"}`}
                               >
                                 {child.label}
+                                {childBadge > 0 && (
+                                  <span className="flex h-4 min-w-4 shrink-0 items-center justify-center rounded-full bg-red-500 px-1 text-[10px] font-bold text-white">
+                                    {childBadge > 99 ? "99+" : childBadge}
+                                  </span>
+                                )}
                               </Link>
                             </li>
                           );
@@ -526,6 +628,15 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       <main className={`min-h-screen pt-14 ${mainPl}`}>
         <div className="p-4 sm:p-6">{children}</div>
       </main>
+
+      {/* 셀인코치 채팅 말풍선 (채팅 페이지 제외) */}
+      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
+        <AdminChatBubble userRole="provider" userId={userId} />
+      )}
+      {/* 소비자와의 채팅 말풍선 (채팅 페이지 제외) */}
+      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
+        <ConsumerProviderChatBubble userRole="provider" userId={userId} />
+      )}
     </div>
     </ProviderLayoutContext.Provider>
   );

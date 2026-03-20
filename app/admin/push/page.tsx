@@ -1,10 +1,31 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import PushNotificationToggle from "@/app/components/PushNotificationToggle";
 
 type ProfileOption = { user_id: string; name: string; email: string | null; business_name: string | null };
+
+type PushLogRow = {
+  id: string;
+  recipient_user_id: string;
+  recipient_name: string;
+  recipient_email: string;
+  title: string;
+  body: string | null;
+  url: string | null;
+  tag: string | null;
+  source: string;
+  status: string;
+  created_at: string;
+};
+
+const SOURCE_LABELS: Record<string, string> = {
+  "admin-send": "관리자 발송",
+  "chat-reply": "채팅 답변",
+  "chat-notify": "채팅 알림(관리자용)",
+  "consumer-provider-chat-notify": "시공업체/소비자 채팅",
+};
 
 export default function AdminPushPage() {
   const [title, setTitle] = useState("셀인코치");
@@ -19,6 +40,14 @@ export default function AdminPushPage() {
   const [result, setResult] = useState<{ sent: number; failed: number } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [subsCount, setSubsCount] = useState<number | null>(null);
+  const [logs, setLogs] = useState<PushLogRow[]>([]);
+  const [logsLoading, setLogsLoading] = useState(true);
+  const [logsExpanded, setLogsExpanded] = useState(true);
+  const [pageSize, setPageSize] = useState(20);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
+  const [expandedRowId, setExpandedRowId] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   // 구독자 수 조회
@@ -37,6 +66,34 @@ export default function AdminPushPage() {
     const interval = setInterval(fetchSubsCount, 10000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchLogs = async () => {
+    setLogsLoading(true);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) return;
+      const res = await fetch(`/api/push/logs?limit=${pageSize}&page=${page}`, {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setLogs(data.logs ?? []);
+        setTotal(data.total ?? 0);
+        setTotalPages(data.totalPages ?? 0);
+      }
+    } finally {
+      setLogsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchLogs();
+  }, [page, pageSize]);
+
+  useEffect(() => {
+    const interval = setInterval(fetchLogs, 15000);
+    return () => clearInterval(interval);
+  }, [page, pageSize]);
 
   // 이름 검색 (디바운스)
   useEffect(() => {
@@ -122,6 +179,7 @@ export default function AdminPushPage() {
       }
 
       setResult({ sent: data.sent ?? 0, failed: data.failed ?? 0 });
+      fetchLogs();
     } catch (e) {
       console.error(e);
       setError("발송 중 오류가 발생했습니다.");
@@ -268,6 +326,143 @@ export default function AdminPushPage() {
             </button>
           </div>
         </div>
+      </div>
+
+      {/* 발송 이력 */}
+      <div className="rounded-2xl border border-gray-200 bg-white shadow-sm">
+        <button
+          type="button"
+          onClick={() => setLogsExpanded((e) => !e)}
+          className="flex w-full items-center justify-between px-5 py-4 text-left"
+        >
+          <div>
+            <h2 className="text-sm font-semibold text-gray-700">발송 이력</h2>
+            <p className="mt-0.5 text-xs text-gray-500">발송된 모든 푸시 메시지와 종류를 저장합니다. 총 {total}건</p>
+          </div>
+          <span className="text-gray-400">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${logsExpanded ? "rotate-180" : ""}`}>
+              <polyline points="6 9 12 15 18 9" />
+            </svg>
+          </span>
+        </button>
+        {logsExpanded && (
+          <div className="border-t border-gray-100 px-5 pb-5 pt-2">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-gray-500">페이지당</span>
+                <select
+                  value={pageSize}
+                  onChange={(e) => { setPageSize(Number(e.target.value)); setPage(1); }}
+                  className="rounded-lg border border-gray-200 px-2 py-1.5 text-sm"
+                >
+                  <option value={10}>10개</option>
+                  <option value={20}>20개</option>
+                  <option value={30}>30개</option>
+                </select>
+                <button type="button" onClick={fetchLogs} disabled={logsLoading} className="text-xs text-indigo-600 hover:underline disabled:opacity-50">
+                  새로고침
+                </button>
+              </div>
+              <div className="flex items-center gap-1">
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || logsLoading}
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs disabled:opacity-50"
+                >
+                  이전
+                </button>
+                <span className="px-2 text-xs text-gray-600">
+                  {page} / {totalPages || 1}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setPage((p) => Math.min(totalPages || 1, p + 1))}
+                  disabled={page >= totalPages || logsLoading}
+                  className="rounded-lg border border-gray-200 px-2 py-1 text-xs disabled:opacity-50"
+                >
+                  다음
+                </button>
+              </div>
+            </div>
+            {logsLoading ? (
+              <div className="py-8 text-center text-sm text-gray-500">불러오는 중...</div>
+            ) : logs.length === 0 ? (
+              <div className="py-8 text-center text-sm text-gray-500">발송 이력이 없습니다.</div>
+            ) : (
+              <div className="max-h-96 overflow-y-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="sticky top-0 bg-gray-50">
+                    <tr>
+                      <th className="w-8 px-2 py-2" />
+                      <th className="px-3 py-2 font-medium text-gray-600">발송 시각</th>
+                      <th className="px-3 py-2 font-medium text-gray-600">유형</th>
+                      <th className="px-3 py-2 font-medium text-gray-600">수신자</th>
+                      <th className="px-3 py-2 font-medium text-gray-600">제목</th>
+                      <th className="px-3 py-2 font-medium text-gray-600">내용</th>
+                      <th className="px-3 py-2 font-medium text-gray-600">결과</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {logs.map((row) => (
+                      <React.Fragment key={row.id}>
+                        <tr
+                          className={`cursor-pointer border-t border-gray-100 transition ${expandedRowId === row.id ? "bg-gray-50" : "hover:bg-gray-50/50"}`}
+                          onClick={() => setExpandedRowId((id) => (id === row.id ? null : row.id))}
+                        >
+                          <td className="px-2 py-2">
+                            <span className="inline-block text-gray-400">
+                              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={`transition-transform ${expandedRowId === row.id ? "rotate-90" : ""}`}>
+                                <polyline points="9 18 15 12 9 6" />
+                              </svg>
+                            </span>
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">
+                            {new Date(row.created_at).toLocaleString("ko-KR", {
+                              month: "numeric",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            })}
+                          </td>
+                          <td className="px-3 py-2 text-gray-600">{SOURCE_LABELS[row.source] ?? row.source}</td>
+                          <td className="px-3 py-2">
+                            <span className="font-medium text-gray-800">{row.recipient_name}</span>
+                            {row.recipient_email && row.recipient_email !== "—" && (
+                              <span className="ml-1 block text-xs text-gray-500">{row.recipient_email}</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-gray-700">{row.title}</td>
+                          <td className="max-w-[200px] truncate px-3 py-2 text-gray-600" title={row.body ?? ""}>
+                            {row.body || "—"}
+                          </td>
+                          <td className="px-3 py-2">
+                            <span className={row.status === "success" ? "text-green-600" : "text-red-600"}>
+                              {row.status === "success" ? "성공" : "실패"}
+                            </span>
+                          </td>
+                        </tr>
+                        {expandedRowId === row.id && (
+                          <tr className="border-t-0 bg-gray-50/80">
+                            <td colSpan={7} className="px-4 py-3">
+                              <div className="space-y-1 text-xs">
+                                <p><span className="font-medium text-gray-600">제목:</span> {row.title}</p>
+                                <p><span className="font-medium text-gray-600">내용:</span> {row.body || "—"}</p>
+                                <p><span className="font-medium text-gray-600">URL:</span> {row.url || "—"}</p>
+                                <p><span className="font-medium text-gray-600">태그:</span> {row.tag || "—"}</p>
+                                <p><span className="font-medium text-gray-600">유형(source):</span> {row.source}</p>
+                              </div>
+                            </td>
+                          </tr>
+                        )}
+                      </React.Fragment>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
