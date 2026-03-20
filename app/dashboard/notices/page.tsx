@@ -97,7 +97,7 @@ export default function DashboardNoticesPage() {
       {/* 상세 모달 */}
       {selected && (
         <div
-          className="fixed inset-0 top-14 z-[300] flex items-center justify-center bg-black/50 p-4 pt-6"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4 pt-6 top-[var(--header-offset)]"
           onClick={() => setSelectedId(null)}
         >
           <div

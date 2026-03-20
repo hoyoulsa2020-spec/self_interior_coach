@@ -428,7 +428,7 @@ export default function ProviderDashboardPage() {
       <VideoOrGradientBackground
         videos={DASHBOARD_VIDEOS}
         overlayClassName="bg-black/40"
-        wrapperClassName={`fixed inset-0 top-14 left-0 z-0 bg-black ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}
+        wrapperClassName={`fixed inset-0 left-0 z-0 bg-black top-[var(--header-offset)] ${sidebarCollapsed ? "lg:left-16" : "lg:left-60"}`}
       />
 
       <div className="relative z-10 space-y-6">

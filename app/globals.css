@@ -3,6 +3,7 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
+  --header-offset: calc(3.5rem + env(safe-area-inset-top, 0px));
 }
 
 @theme inline {

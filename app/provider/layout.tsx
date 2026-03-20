@@ -373,7 +373,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
     <ProviderLayoutContext.Provider value={{ sidebarCollapsed }}>
     <div className="min-h-screen bg-gray-50">
       {/* 상단 헤더 */}
-      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm">
+      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm pt-[env(safe-area-inset-top,0px)]">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -415,7 +415,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
       {/* 사이드바 */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out
+        className={`fixed top-0 left-0 z-50 flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out pt-[env(safe-area-inset-top,0px)]
           lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
           ${sidebarCollapsed ? "lg:w-16" : "lg:w-60"}
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
@@ -638,7 +638,7 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
       </aside>
 
       {/* 본문 */}
-      <main className={`min-h-screen pt-14 ${mainPl}`}>
+      <main className={`min-h-screen pt-[calc(3.5rem+env(safe-area-inset-top,0px))] ${mainPl}`}>
         <div className="p-4 sm:p-6">{children}</div>
       </main>
 

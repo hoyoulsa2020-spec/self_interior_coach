@@ -634,7 +634,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
 
   return (
     <>
-    <div className="fixed inset-0 top-14 z-50 flex items-center justify-center overflow-hidden bg-transparent px-4 py-4 sm:py-8">
+    <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-transparent px-4 py-4 sm:py-8 top-[var(--header-offset)]">
       <div className="relative flex min-h-0 w-full max-w-xl flex-1 flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "min(92vh, calc(100svh - 4rem))" }}>
         {validationModal && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/50 px-4" onClick={() => setValidationModal(null)}>

@@ -69,7 +69,7 @@ export default function NoticeLayer({ targetAudience }: NoticeLayerProps) {
 
       {open && (
         <div
-          className="fixed inset-0 top-14 z-[300] flex items-center justify-center bg-black/50 p-4 pt-6"
+          className="fixed inset-0 z-[300] flex items-center justify-center bg-black/50 p-4 pt-6 top-[var(--header-offset)]"
           onClick={() => {
             setOpen(false);
             setSelectedId(null);
