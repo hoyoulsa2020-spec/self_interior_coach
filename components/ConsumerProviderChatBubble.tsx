@@ -84,6 +84,47 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
     scrollToBottom();
   }, [messages]);
 
+  /**
+   * 표시할 파트너 ID 집합 반환.
+   * - 메시지 1개 이상: 항상 표시
+   * - 스레드 없음: 표시 (새 대화 시작 가능)
+   * - 스레드 있음, 메시지 0개: 내가 연 경우만 표시 (상대방에게는 안 보임)
+   */
+  const getVisiblePartnerIds = async (
+    partnerIds: string[],
+    isConsumer: boolean,
+  ): Promise<Set<string>> => {
+    if (partnerIds.length === 0) return new Set();
+    const partnerKey = isConsumer ? "provider_id" : "consumer_id";
+    const threadQuery = isConsumer
+      ? supabase.from("consumer_provider_chat_threads").select("id, provider_id, initiated_by_role").eq("consumer_id", userId).in("provider_id", partnerIds)
+      : supabase.from("consumer_provider_chat_threads").select("id, consumer_id, initiated_by_role").eq("provider_id", userId).in("consumer_id", partnerIds);
+    const { data: threads } = await threadQuery;
+    const threadIds = (threads ?? []).map((t) => t.id);
+    let threadIdsWithMsgs = new Set<string>();
+    if (threadIds.length > 0) {
+      const { data: msgs } = await supabase.from("consumer_provider_chat_messages").select("thread_id").in("thread_id", threadIds);
+      threadIdsWithMsgs = new Set((msgs ?? []).map((m) => m.thread_id));
+    }
+    const threadByPartner = new Map<string, { id: string; initiated_by_role?: string | null }>();
+    for (const t of threads ?? []) {
+      const pid = (t as { provider_id?: string; consumer_id?: string })[partnerKey]!;
+      threadByPartner.set(pid, { id: t.id, initiated_by_role: (t as { initiated_by_role?: string | null }).initiated_by_role });
+    }
+    const result = new Set<string>();
+    for (const pid of partnerIds) {
+      const thread = threadByPartner.get(pid);
+      if (!thread) {
+        result.add(pid); // 스레드 없음 → 새 대화 시작 가능
+        continue;
+      }
+      const hasMessages = threadIdsWithMsgs.has(thread.id);
+      if (hasMessages) result.add(pid);
+      else if (thread.initiated_by_role === userRole) result.add(pid); // 내가 연 채팅창
+    }
+    return result;
+  };
+
   const fetchPartners = async () => {
     setPartnersLoading(true);
     if (userRole === "consumer") {
@@ -123,8 +164,10 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
         list.push({ category: a.category, scheduleStr, projectTitle });
         byProvider.set(a.provider_id, list);
       }
+      const visibleProviderIds = await getVisiblePartnerIds(providerIds, true);
+      const filteredProviderIds = providerIds.filter((pid) => visibleProviderIds.has(pid));
       setPartners(
-        providerIds.map((pid) => {
+        filteredProviderIds.map((pid) => {
           const prof = profMap.get(pid);
           const contracts = byProvider.get(pid) ?? [];
           const first = contracts[0];
@@ -177,8 +220,10 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
         list.push({ category: a.category, scheduleStr, projectTitle, contactName });
         byConsumer.set(cid, list);
       }
+      const visibleConsumerIds = await getVisiblePartnerIds(consumerIds, false);
+      const filteredConsumerIds = consumerIds.filter((cid) => visibleConsumerIds.has(cid));
       setPartners(
-        consumerIds.map((cid) => {
+        filteredConsumerIds.map((cid) => {
           const prof = profMap.get(cid);
           const contracts = byConsumer.get(cid) ?? [];
           const categoryLabel = contracts.map((c) => c.projectTitle ? `${c.category} - ${c.projectTitle} (${c.scheduleStr})` : `${c.category} (${c.scheduleStr})`).join(", ");
@@ -220,7 +265,7 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
 
     const { data: inserted, error } = await supabase
       .from("consumer_provider_chat_threads")
-      .insert({ consumer_id: consumerId, provider_id: providerId })
+      .insert({ consumer_id: consumerId, provider_id: providerId, initiated_by_role: userRole })
       .select("id")
       .single();
 

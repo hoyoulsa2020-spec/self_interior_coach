@@ -63,6 +63,36 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => { scrollToBottom(); }, [messages]);
 
+  /** 표시할 파트너 ID: 메시지 있음 | 스레드 없음 | 내가 연 채팅창(0건) */
+  const getVisiblePartnerIds = async (partnerIds: string[], isConsumer: boolean): Promise<Set<string>> => {
+    if (partnerIds.length === 0) return new Set();
+    const partnerKey = isConsumer ? "provider_id" : "consumer_id";
+    const threadQuery = isConsumer
+      ? supabase.from("consumer_provider_chat_threads").select("id, provider_id, initiated_by_role").eq("consumer_id", userId).in("provider_id", partnerIds)
+      : supabase.from("consumer_provider_chat_threads").select("id, consumer_id, initiated_by_role").eq("provider_id", userId).in("consumer_id", partnerIds);
+    const { data: threads } = await threadQuery;
+    const threadIds = (threads ?? []).map((t) => t.id);
+    let threadIdsWithMsgs = new Set<string>();
+    if (threadIds.length > 0) {
+      const { data: msgs } = await supabase.from("consumer_provider_chat_messages").select("thread_id").in("thread_id", threadIds);
+      threadIdsWithMsgs = new Set((msgs ?? []).map((m) => m.thread_id));
+    }
+    const threadByPartner = new Map<string, { id: string; initiated_by_role?: string | null }>();
+    for (const t of threads ?? []) {
+      const pid = (t as { provider_id?: string; consumer_id?: string })[partnerKey]!;
+      threadByPartner.set(pid, { id: t.id, initiated_by_role: (t as { initiated_by_role?: string | null }).initiated_by_role });
+    }
+    const result = new Set<string>();
+    for (const pid of partnerIds) {
+      const thread = threadByPartner.get(pid);
+      if (!thread) { result.add(pid); continue; }
+      const hasMessages = threadIdsWithMsgs.has(thread.id);
+      if (hasMessages) result.add(pid);
+      else if (thread.initiated_by_role === userRole) result.add(pid);
+    }
+    return result;
+  };
+
   const fetchPartners = async () => {
     setPartnersLoading(true);
     if (userRole === "consumer") {
@@ -84,7 +114,9 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
         list.push({ category: a.category, scheduleStr, projectTitle });
         byProvider.set(a.provider_id, list);
       }
-      setPartners(providerIds.map((pid) => {
+      const visibleIds = await getVisiblePartnerIds(providerIds, true);
+      const filtered = providerIds.filter((pid) => visibleIds.has(pid));
+      setPartners(filtered.map((pid) => {
         const prof = profMap.get(pid);
         const contracts = byProvider.get(pid) ?? [];
         const categoryLabel = contracts.map((c) => c.projectTitle ? `${c.category} - ${c.projectTitle} (${c.scheduleStr})` : `${c.category} (${c.scheduleStr})`).join(", ");
@@ -112,7 +144,9 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
         list.push({ category: a.category, scheduleStr, projectTitle, contactName });
         byConsumer.set(cid, list);
       }
-      setPartners(consumerIds.map((cid) => {
+      const visibleIds = await getVisiblePartnerIds(consumerIds, false);
+      const filtered = consumerIds.filter((cid) => visibleIds.has(cid));
+      setPartners(filtered.map((cid) => {
         const prof = profMap.get(cid);
         const contracts = byConsumer.get(cid) ?? [];
         const categoryLabel = contracts.map((c) => c.projectTitle ? `${c.category} - ${c.projectTitle} (${c.scheduleStr})` : `${c.category} (${c.scheduleStr})`).join(", ");
@@ -137,7 +171,7 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
     const providerId = userRole === "provider" ? userId : partnerId;
     const { data: existing } = await supabase.from("consumer_provider_chat_threads").select("id").eq("consumer_id", consumerId).eq("provider_id", providerId).maybeSingle();
     if (existing) { setThreadId(existing.id); return existing.id; }
-    const { data: inserted, error } = await supabase.from("consumer_provider_chat_threads").insert({ consumer_id: consumerId, provider_id: providerId }).select("id").single();
+    const { data: inserted, error } = await supabase.from("consumer_provider_chat_threads").insert({ consumer_id: consumerId, provider_id: providerId, initiated_by_role: userRole }).select("id").single();
     if (error) return null;
     setThreadId(inserted.id);
     return inserted.id;

@@ -112,7 +112,18 @@ export default function AdminConsumerProviderChatPage() {
         .select("id, user_id, user_role, updated_at, admin_read_at, ended_at, ended_by")
         .is("ended_at", null)
         .order("updated_at", { ascending: false });
-      const list = threadData ?? [];
+      const rawList = threadData ?? [];
+      if (rawList.length === 0) {
+        setThreads([]);
+        return;
+      }
+      const threadIds = rawList.map((t) => t.id);
+      const { data: msgCounts } = await supabase
+        .from("admin_chat_messages")
+        .select("thread_id")
+        .in("thread_id", threadIds);
+      const threadIdsWithMsgs = new Set((msgCounts ?? []).map((m) => m.thread_id));
+      const list = rawList.filter((t) => threadIdsWithMsgs.has(t.id));
       if (list.length === 0) {
         setThreads([]);
         return;
