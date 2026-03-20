@@ -93,6 +93,7 @@ export default function ProviderProductsPage() {
         { count: "exact" },
       )
       .eq("role", "provider")
+      .eq("onboarding_completed", true)
       .order("created_at", { ascending: false })
       .range(from, to);
 
@@ -205,9 +206,20 @@ export default function ProviderProductsPage() {
           <ul className="divide-y divide-gray-100">
             {providers.map((p) => {
               const categories = toArray(p.category);
+              const badges = toArray(p.badges);
               return (
                 <li key={p.user_id} className="px-4 py-3">
-                  <p className="font-medium text-gray-800">{p.business_name || "—"}</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-medium text-gray-800">{p.business_name || "—"}</p>
+                    {badges.length > 0 && (
+                      <div className="flex items-center gap-1" title={badges.map((b) => BADGES.find((x) => x.id === b)?.label).filter(Boolean).join(", ")}>
+                        {badges.map((bid) => {
+                          const badge = BADGES.find((b) => b.id === bid);
+                          return badge ? <span key={bid} className={`h-2.5 w-2.5 shrink-0 rounded-full ${badge.dot}`} /> : null;
+                        })}
+                      </div>
+                    )}
+                  </div>
                   <p className="mt-0.5 text-xs text-gray-500">{p.owner_name || "—"}</p>
                   {categories.length > 0 && (
                     <p className="mt-1 truncate text-[11px] text-gray-400">{categories.slice(0, 2).join(", ")}{categories.length > 2 ? ` +${categories.length - 2}` : ""}</p>
@@ -273,25 +285,14 @@ export default function ProviderProductsPage() {
                       </td>
                       <td className="px-4 py-3">
                         {badges.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex items-center gap-1.5" title={badges.map((b) => BADGES.find((x) => x.id === b)?.label).filter(Boolean).join(", ")}>
                             {badges.map((bid) => {
                               const badge = BADGES.find((b) => b.id === bid);
-                              if (!badge) return null;
-                              return (
-                                <span key={bid} title={badge.label}>
-                                  {/* 모바일: 점만 표시 */}
-                                  <span className={`block h-3 w-3 rounded-full sm:hidden ${badge.dot}`} />
-                                  {/* sm 이상: 전체 뱃지 */}
-                                  <span className={`hidden sm:inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-medium ${badge.bg} ${badge.color} ${badge.border}`}>
-                                    <span className={`h-1.5 w-1.5 rounded-full ${badge.dot}`} />
-                                    {badge.label}
-                                  </span>
-                                </span>
-                              );
+                              return badge ? <span key={bid} className={`h-2.5 w-2.5 shrink-0 rounded-full ${badge.dot}`} /> : null;
                             })}
                           </div>
                         ) : (
-                          <span className="text-xs text-gray-300">없음</span>
+                          <span className="text-xs text-gray-300">—</span>
                         )}
                       </td>
                       <td className="px-4 py-3">
