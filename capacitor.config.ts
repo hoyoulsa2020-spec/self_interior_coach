@@ -10,6 +10,9 @@ const config: CapacitorConfig = {
     cleartext: true,
   },
   plugins: {
+    Badge: {
+      autoClear: true,
+    },
     SplashScreen: {
       launchShowDuration: 500,
       launchAutoHide: true,

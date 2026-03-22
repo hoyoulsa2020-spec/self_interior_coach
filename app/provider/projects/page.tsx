@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useRef, useMemo } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { normalizeWorkLabel } from "@/lib/workTreeLabels";
 import ProviderSearchBar from "@/components/ProviderSearchBar";
 
 type WorkTreeItem = { cat: string; subs: string[] };
@@ -173,12 +174,14 @@ export default function ProviderProjectsPage() {
       const getSubs = (project: ProjectWithMeta, catName: string): string[] => {
         const tree = project.work_tree ?? [];
         if (tree.length > 0) {
-          const found = tree.find((g) => g.cat === catName);
-          return found?.subs ?? [];
+          const found = tree.find((g) => normalizeWorkLabel(g.cat) === catName);
+          const raw = found?.subs ?? [];
+          return raw.map(normalizeWorkLabel).filter(Boolean);
         }
         if (project.work_details) {
           const detail = project.work_details[catName] as { subs?: string[] } | undefined;
-          return detail?.subs ?? [];
+          const raw = detail?.subs ?? [];
+          return raw.map(normalizeWorkLabel).filter(Boolean);
         }
         return [];
       };

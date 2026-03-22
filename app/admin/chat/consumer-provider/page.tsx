@@ -441,8 +441,8 @@ export default function AdminConsumerProviderChatPage() {
       {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
       <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-56 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
         <div className="shrink-0 border-b border-gray-200 px-3 py-2">
-          <h2 className="text-xs font-semibold text-gray-800">회원들에게 채팅하기</h2>
-          <p className="mt-0.5 text-[10px] text-gray-500">관리자가 먼저 말걸 수 있습니다</p>
+          <h2 className="text-xs font-semibold text-gray-800">회원에게 채팅요청</h2>
+          <p className="mt-0.5 text-[10px] text-gray-500">관리자가 먼저 채팅을 요청할 수 있습니다</p>
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto">
           {/* 진행 중인 대화 */}

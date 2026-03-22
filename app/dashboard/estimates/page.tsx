@@ -137,8 +137,8 @@ export default function EstimatesPage() {
 
   return (
     <div className="space-y-5">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-xl font-semibold text-gray-800">견적서 검토요청</h1>
           <p className="mt-0.5 text-sm text-gray-500">타사 견적서를 업로드하면 셀인코치가 검토 후 답변드립니다.</p>
         </div>
@@ -230,14 +230,15 @@ export default function EstimatesPage() {
 
       {/* ── 상세 모달 ── */}
       {detail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="flex w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl" style={{ maxHeight: "90vh" }}>
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
-              <div className="flex items-center gap-2">
-                <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${detail.status === "reviewed" ? "bg-blue-50 text-blue-700" : "bg-yellow-50 text-yellow-700"}`}>
+        <div className="fixed z-50 flex items-center justify-center bg-black/50 px-4 max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[var(--header-offset)] max-sm:items-stretch max-sm:bg-white max-sm:p-0 chat-fullscreen-mobile sm:inset-0">
+          <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:shadow-none" style={{ maxHeight: "min(90vh, 100dvh)" }}>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-sm:pb-[var(--safe-bottom)]">
+            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <span className={`shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${detail.status === "reviewed" ? "bg-blue-50 text-blue-700" : "bg-yellow-50 text-yellow-700"}`}>
                   {detail.status === "reviewed" ? "검토완료" : "검토대기"}
                 </span>
-                <h3 className="text-sm font-semibold text-gray-800">{detail.title}</h3>
+                <h3 className="min-w-0 flex-1 text-sm font-semibold text-gray-800 break-words line-clamp-2 sm:line-clamp-none">{detail.title}</h3>
               </div>
               <button type="button" onClick={() => setDetail(null)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -245,11 +246,11 @@ export default function EstimatesPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto space-y-4 px-4 py-4 sm:px-5">
               {detail.content && (
                 <div className="rounded-xl bg-gray-50 p-4">
                   <p className="text-xs text-gray-400 mb-1">{new Date(detail.created_at).toLocaleString("ko-KR")}</p>
-                  <p className="text-sm text-gray-800 whitespace-pre-wrap">{detail.content}</p>
+                  <p className="text-sm text-gray-800 whitespace-pre-wrap break-words">{detail.content}</p>
                 </div>
               )}
 
@@ -307,9 +308,10 @@ export default function EstimatesPage() {
                 </div>
               )}
             </div>
-            <div className="border-t border-gray-100 px-5 py-4">
+            <div className="shrink-0 border-t border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
               <button type="button" onClick={() => setDetail(null)}
                 className="w-full rounded-xl border border-gray-200 py-2 text-sm text-gray-600 hover:bg-gray-50">닫기</button>
+            </div>
             </div>
           </div>
         </div>
@@ -317,9 +319,10 @@ export default function EstimatesPage() {
 
       {/* ── 업로드 모달 ── */}
       {showForm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-          <div className="flex w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl" style={{ maxHeight: "90vh" }}>
-            <div className="flex items-center justify-between border-b border-gray-100 px-5 py-4">
+        <div className="fixed z-50 flex items-center justify-center bg-black/50 px-4 max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[var(--header-offset)] max-sm:items-stretch max-sm:bg-white max-sm:p-0 chat-fullscreen-mobile sm:inset-0">
+          <div className="flex w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl max-sm:h-full max-sm:max-h-none max-sm:max-w-none max-sm:rounded-none max-sm:shadow-none" style={{ maxHeight: "min(90vh, 100dvh)" }}>
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden max-sm:pb-[var(--safe-bottom)]">
+            <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
               <h3 className="text-sm font-semibold text-gray-800">타사 견적서 업로드</h3>
               <button type="button" onClick={() => setShowForm(false)} className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -327,7 +330,7 @@ export default function EstimatesPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4 space-y-4">
+            <div className="min-h-0 flex-1 overflow-y-auto space-y-4 px-4 py-4 sm:px-5">
               <div>
                 <label className="mb-1.5 block text-xs font-medium text-gray-600">제목 <span className="text-red-500">*</span></label>
                 <input type="text" placeholder="견적서 제목을 입력하세요" value={formTitle}
@@ -388,13 +391,14 @@ export default function EstimatesPage() {
               </div>
               {formError && <p className="rounded-lg bg-red-50 px-3 py-2 text-xs text-red-600">{formError}</p>}
             </div>
-            <div className="flex gap-2 border-t border-gray-100 px-5 py-4">
+            <div className="flex shrink-0 gap-2 border-t border-gray-100 px-4 py-3 sm:px-5 sm:py-4">
               <button type="button" onClick={() => setShowForm(false)}
                 className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm text-gray-600 hover:bg-gray-50">취소</button>
               <button type="button" onClick={handleSubmit} disabled={isSubmitting}
                 className="flex-1 rounded-xl bg-indigo-600 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50">
                 {isSubmitting ? "업로드 중..." : "검토 요청"}
               </button>
+            </div>
             </div>
           </div>
         </div>

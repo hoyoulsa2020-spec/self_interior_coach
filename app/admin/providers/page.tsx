@@ -522,7 +522,7 @@ export default function ProvidersPage() {
           onClick={() => { setDetailProvider(null); setIsDetailLoading(false); }}
         >
           <div
-            className="relative w-full sm:max-w-xl h-[92dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl flex flex-col pb-[env(safe-area-inset-bottom)]"
+            className="relative w-full sm:max-w-xl h-[92dvh] sm:h-auto sm:max-h-[90vh] overflow-y-auto rounded-t-2xl sm:rounded-2xl bg-white shadow-xl flex flex-col pb-[var(--safe-bottom)]"
             onClick={(e) => e.stopPropagation()}
           >
             {/* 모달 헤더 */}

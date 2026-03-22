@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { compressImage } from "@/lib/imageCompress";
@@ -62,6 +63,15 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
 
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(() => { scrollToBottom(); }, [messages]);
+
+  /* 모바일 전체화면 채팅: body 스크롤 금지 */
+  useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+    if (isMobile) {
+      document.body.classList.add("chat-open");
+      return () => document.body.classList.remove("chat-open");
+    }
+  }, []);
 
   /** 표시할 파트너 ID: 메시지 있음 | 스레드 없음 | 내가 연 채팅창(0건) */
   const getVisiblePartnerIds = async (partnerIds: string[], isConsumer: boolean): Promise<Set<string>> => {
@@ -319,20 +329,23 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
 
   if (partners.length === 0 && !partnersLoading) {
     return (
-      <div className="flex h-[calc(100vh-8rem)] flex-col items-center justify-center rounded-xl border border-gray-200 bg-white p-8">
+      <div className="chat-fullpage-shell flex items-center justify-center p-8">
         <p className="text-sm text-gray-500">계약완료된 {userRole === "consumer" ? "업체" : "소비자"}가 없습니다.</p>
       </div>
     );
   }
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+    <div className="chat-fullpage-shell chat-fullpage-shell-sidebar flex flex-col gap-4 md:flex-row">
       {/* 목록 패널 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
       <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:shrink-0 ${userRole === "provider" ? "md:w-48" : "md:w-72"} ${selectedPartnerId ? "hidden md:flex" : "flex"}`}>
-        <div className={`border-b border-gray-200 px-3 ${userRole === "provider" ? "py-2" : "px-4 py-3"}`}>
-          <h2 className="text-sm font-semibold text-gray-800">{userRole === "consumer" ? "업체" : "소비자"} 선택</h2>
+        <div className={`chat-list-shell-header flex shrink-0 items-center gap-2 border-b border-gray-200 px-3 ${userRole === "provider" ? "py-2" : "px-4 py-3"}`}>
+          <Link href={userRole === "consumer" ? "/dashboard" : "/provider/dashboard"} className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 md:hidden" aria-label="뒤로">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+          </Link>
+          <h2 className="min-w-0 flex-1 text-sm font-semibold text-gray-800">{userRole === "consumer" ? "업체" : "소비자"} 선택</h2>
         </div>
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 min-h-0 overflow-y-auto">
           {partnersLoading ? (
             <div className={userRole === "provider" ? "p-3 text-center text-xs text-gray-500" : "p-4 text-center text-sm text-gray-500"}>불러오는 중...</div>
           ) : (
@@ -397,25 +410,25 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
           )}
         </div>
       </div>
-      {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
-      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedPartnerId ? "flex" : "hidden md:flex"}`}>
+      {/* 채팅 영역: AppShell 구조 (Header | MessageList | Composer) */}
+      <div className={`flex flex-1 min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedPartnerId ? "flex" : "hidden md:flex"}`}>
         {selectedPartner ? (
           <>
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
-              <button
-                type="button"
-                onClick={() => { setSelectedPartnerId(null); setThreadId(null); }}
-                className="md:hidden shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
-                aria-label="목록으로"
-              >
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <polyline points="15 18 9 12 15 6" />
-                </svg>
-              </button>
-              <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-800">{userRole === "provider" && selectedPartner.projectTitle ? `${selectedPartner.displayName} - ${selectedPartner.projectTitle}` : selectedPartner.displayName}</h3>
-              <button type="button" onClick={() => setShowResetConfirm(true)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50">{userRole === "consumer" ? "채팅 종료" : "채팅 초기화"}</button>
+            <div className="chat-app-shell-header flex shrink-0 items-center justify-between gap-2 px-4 py-3">
+              <div className="flex min-w-0 flex-1 items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => { setSelectedPartnerId(null); setThreadId(null); }}
+                  className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 md:hidden"
+                  aria-label="목록으로"
+                >
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+                </button>
+                <h3 className="min-w-0 flex-1 truncate text-base font-semibold text-gray-800">{userRole === "provider" && selectedPartner.projectTitle ? `${selectedPartner.displayName} - ${selectedPartner.projectTitle}` : selectedPartner.displayName}</h3>
+              </div>
+              <button type="button" onClick={() => setShowResetConfirm(true)} className="shrink-0 rounded-lg px-3 py-1.5 text-xs font-medium text-amber-600 hover:bg-amber-50">{userRole === "consumer" ? "채팅 종료하기" : "채팅 초기화"}</button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4">
+            <div className="chat-app-shell-messages flex-1 min-h-0 overflow-y-auto p-4">
               {loading ? <div className="flex justify-center py-8 text-sm text-gray-500">메시지 불러오는 중...</div> : messages.length === 0 ? (
                 <div className="flex flex-col items-center justify-center py-12 text-sm text-gray-500">메시지를 보내보세요.</div>
               ) : (
@@ -446,7 +459,7 @@ export default function ConsumerProviderChatPage({ userRole, userId }: Props) {
                 </div>
               )}
             </div>
-            <div className="shrink-0 border-t border-gray-200 p-3">
+            <div className="chat-app-shell-composer shrink-0 p-3">
               {pendingImages.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {pendingImages.map((f, i) => (

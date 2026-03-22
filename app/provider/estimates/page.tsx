@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import { formatArea } from "@/lib/area";
 import AlertModal from "@/components/AlertModal";
+import ChatImageLightbox from "@/components/ChatImageLightbox";
 import ProviderSearchBar from "@/components/ProviderSearchBar";
 
 type WorkTreeItem = { cat: string; subs: string[] };
@@ -83,44 +84,6 @@ function formatScheduleRange(processSchedule: Record<string, unknown> | null, ca
     return `${m}/${d} (${DAY_LABELS[date.getDay()]})`;
   };
   return `${fmt(r.start)} ~ ${fmt(r.end)}`;
-}
-
-function Lightbox({ urls, index, onClose }: { urls: string[]; index: number; onClose: () => void }) {
-  const [cur, setCur] = useState(index);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setCur((c) => Math.min(c + 1, urls.length - 1));
-      if (e.key === "ArrowLeft") setCur((c) => Math.max(c - 1, 0));
-    };
-    window.addEventListener("keydown", handler);
-    return () => window.removeEventListener("keydown", handler);
-  }, [urls.length, onClose]);
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/85" onClick={onClose}>
-      <button onClick={onClose} className="absolute right-4 top-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      {urls.length > 1 && (
-        <>
-          <button onClick={(e) => { e.stopPropagation(); setCur((c) => Math.max(c - 1, 0)); }}
-            className="absolute left-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 disabled:opacity-30" disabled={cur === 0}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setCur((c) => Math.min(c + 1, urls.length - 1)); }}
-            className="absolute right-4 rounded-full bg-white/10 p-2 text-white hover:bg-white/20 disabled:opacity-30" disabled={cur === urls.length - 1}>
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </>
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={urls[cur]} alt={`이미지 ${cur + 1}`} onClick={(e) => e.stopPropagation()}
-        className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl" />
-      {urls.length > 1 && (
-        <p className="absolute bottom-4 text-xs text-white/60">{cur + 1} / {urls.length}</p>
-      )}
-    </div>
-  );
 }
 
 const SEVENTY_TWO_HOURS_MS = 72 * 60 * 60 * 1000;
@@ -202,7 +165,77 @@ export default function ProviderEstimatesPage() {
   const [tick, setTick] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [expandedProjects, setExpandedProjects] = useState<Set<string>>(new Set());
+  const [expandedCategories, setExpandedCategories] = useState<Record<string, Set<string>>>({});
   const initializedRef = useRef(false);
+
+  const STORAGE_KEY = "provider-estimates-ui-state";
+
+  const loadUiState = () => {
+    if (typeof window === "undefined") return { projects: new Set<string>(), categories: {} as Record<string, Set<string>> };
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      if (!raw) return { projects: new Set<string>(), categories: {} as Record<string, Set<string>> };
+      const data = JSON.parse(raw) as { projects?: string[]; categories?: Record<string, string[]> };
+      return {
+        projects: new Set(data.projects ?? []),
+        categories: Object.fromEntries(
+          Object.entries(data.categories ?? {}).map(([k, v]) => [k, new Set(v ?? [])])
+        ),
+      };
+    } catch {
+      return { projects: new Set<string>(), categories: {} as Record<string, Set<string>> };
+    }
+  };
+
+  const saveUiState = (projects: Set<string>, categories: Record<string, Set<string>>) => {
+    if (typeof window === "undefined") return;
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify({
+        projects: Array.from(projects),
+        categories: Object.fromEntries(
+          Object.entries(categories).map(([k, v]) => [k, Array.from(v)])
+        ),
+      }));
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const isInitialMount = useRef(true);
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false;
+      const { projects, categories } = loadUiState();
+      setExpandedProjects(projects);
+      setExpandedCategories(categories);
+      return;
+    }
+    saveUiState(expandedProjects, expandedCategories);
+  }, [expandedProjects, expandedCategories]);
+
+  const toggleProject = (id: string) => {
+    setExpandedProjects((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const toggleCategory = (projectId: string, cat: string) => {
+    setExpandedCategories((prev) => {
+      const set = new Set(prev[projectId] ?? []);
+      if (set.has(cat)) set.delete(cat);
+      else set.add(cat);
+      return { ...prev, [projectId]: set };
+    });
+  };
+  const isProjectExpanded = (id: string) => expandedProjects.has(id);
+  const isCategoryExpanded = (projectId: string, cat: string) => (expandedCategories[projectId] ?? new Set()).has(cat);
+
+  useEffect(() => {
+    saveUiState(expandedProjects, expandedCategories);
+  }, [expandedProjects, expandedCategories]);
 
   const hasInProgress = Object.values(categoryAssignments).some((cats) =>
     Object.values(cats).some((a) => a.match_status === "in_progress" && a.provider_id === providerId)
@@ -560,20 +593,34 @@ export default function ProviderEstimatesPage() {
             if (groups.length === 0) return null;
             const totalBid = hasBid ? groups.reduce((s, g) => s + (myEstimates[p.id]?.[g.cat] ?? 0), 0) : 0;
 
+            const projectExpanded = isProjectExpanded(p.id);
+
             return (
               <div key={p.id} className="flex flex-col rounded-2xl border border-gray-200 bg-white shadow-sm overflow-hidden">
-                <div className="flex items-center justify-between gap-2 px-4 py-3 md:px-5 md:pt-4 md:pb-3 border-b border-gray-100">
+                <button
+                  type="button"
+                  onClick={() => toggleProject(p.id)}
+                  className="flex w-full items-center justify-between gap-2 px-4 py-3 md:px-5 md:pt-4 md:pb-3 border-b border-gray-100 text-left hover:bg-gray-50/50 transition"
+                >
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2 flex-wrap">
                       <span className="shrink-0 rounded-full bg-blue-50 px-2 py-0.5 text-[11px] font-semibold text-blue-700">
                         {p.status === "estimate_waiting" ? "견적대기" : p.status === "active" ? "진행중" : p.status}
                       </span>
                       <p className="text-sm font-bold text-gray-900 line-clamp-2 leading-snug">{p.title || "제목 없음"}</p>
+                      <span className="shrink-0 text-gray-400">
+                        {projectExpanded ? (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15" /></svg>
+                        ) : (
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                        )}
+                      </span>
                     </div>
                   </div>
                   <span className="shrink-0 text-[10px] text-gray-400 md:text-[11px">{fmtDate(p.created_at)}</span>
-                </div>
+                </button>
 
+                {projectExpanded && (
                 <div className="px-4 py-2 space-y-2 md:px-5 md:py-3 md:space-y-3">
                   <div className="flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-gray-500 md:gap-x-5 md:gap-y-1.5 md:text-xs">
                     {p.site_address1 && (
@@ -611,64 +658,87 @@ export default function ProviderEstimatesPage() {
                       const assign = categoryAssignments[p.id]?.[g.cat];
                       const isInProgress = catStatus === "고민중";
                       const remaining72h = isInProgress && assign?.match_started_at ? format72hRemaining(assign.match_started_at) : null;
+                      const catExpanded = isCategoryExpanded(p.id, g.cat);
+                      const hasDetail = subs.length > 0 || (detail?.requirements?.trim() && detail.requirements.length > 0) || (detail?.image_urls && detail.image_urls.length > 0);
                       return (
-                        <div key={g.cat} className="rounded-xl border border-gray-200 bg-gray-50/50 p-2.5 md:p-3">
-                          <div className="flex items-center justify-between gap-2">
-                            <p className="text-sm font-semibold text-gray-800">
-                              {g.cat}
-                              {scheduleStr && <span className="ml-1.5 font-normal text-gray-500 text-xs">· {scheduleStr}</span>}
-                            </p>
-                            {hasBidForCat && (
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm font-medium text-indigo-600">{(amt ?? 0).toLocaleString("ko-KR")}원</span>
-                                {catStatus !== "none" && (
-                                  <span
-                                    className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold
-                                      ${catStatus === "매칭대기" ? "bg-blue-100 text-blue-700 animate-pulse" : ""}
-                                      ${catStatus === "고민중" ? "bg-green-100 text-green-700" : ""}
-                                      ${catStatus === "계약완료" ? "bg-red-100 text-red-700" : ""}
-                                      ${catStatus === "매칭실패" ? "bg-orange-100 text-orange-700" : ""}
-                                      ${catStatus === "거래취소" ? "bg-gray-100 text-gray-500" : ""}`}
-                                  >
-                                    {catStatus}
+                        <div key={g.cat} className="rounded-xl border border-gray-200 bg-gray-50/50 overflow-hidden">
+                          <button
+                            type="button"
+                            onClick={() => hasDetail && toggleCategory(p.id, g.cat)}
+                            className={`w-full p-2.5 md:p-3 text-left ${hasDetail ? "hover:bg-gray-100/50 transition" : ""}`}
+                          >
+                            <div className="flex items-center justify-between gap-2">
+                              <div className="flex items-center gap-2 min-w-0 flex-1">
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {g.cat}
+                                  {scheduleStr && <span className="ml-1.5 font-normal text-gray-500 text-xs">· {scheduleStr}</span>}
+                                </p>
+                                {hasDetail && (
+                                  <span className="shrink-0 text-gray-400">
+                                    {catExpanded ? (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="18 15 12 9 6 15" /></svg>
+                                    ) : (
+                                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="6 9 12 15 18 9" /></svg>
+                                    )}
                                   </span>
                                 )}
                               </div>
-                            )}
-                          </div>
-                          {hasBidForCat && isInProgress && (
-                            <span className="mt-1 block text-[10px] font-medium text-green-700">
-                              {remaining72h ? `72시간 ${remaining72h} 남음` : "72시간 경과"}
-                            </span>
-                          )}
-                          {subs.length > 0 && (
-                            <ol className="mt-1.5 md:mt-2 space-y-0.5 pl-3 text-[11px] text-gray-600 hidden md:block">
-                              {subs.map((s, si) => (
-                                <li key={si}><span className="text-gray-400">{si + 1}.</span> {s}</li>
-                              ))}
-                            </ol>
-                          )}
-                          {detail?.requirements?.trim() && (
-                            <div className="mt-1.5 md:mt-2 rounded border border-gray-200 bg-white px-2.5 py-1.5 hidden md:block">
-                              <p className="mb-0.5 text-[10px] font-semibold text-gray-500">소비자 요구사항</p>
-                              <p className="text-[11px] text-gray-700 whitespace-pre-line leading-relaxed">{detail.requirements}</p>
+                              {hasBidForCat && (
+                                <div className="flex items-center gap-2 shrink-0">
+                                  <span className="text-sm font-medium text-indigo-600">{(amt ?? 0).toLocaleString("ko-KR")}원</span>
+                                  {catStatus !== "none" && (
+                                    <span
+                                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold
+                                        ${catStatus === "매칭대기" ? "bg-blue-100 text-blue-700 animate-pulse" : ""}
+                                        ${catStatus === "고민중" ? "bg-green-100 text-green-700" : ""}
+                                        ${catStatus === "계약완료" ? "bg-red-100 text-red-700" : ""}
+                                        ${catStatus === "매칭실패" ? "bg-orange-100 text-orange-700" : ""}
+                                        ${catStatus === "거래취소" ? "bg-gray-100 text-gray-500" : ""}`}
+                                    >
+                                      {catStatus}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
                             </div>
-                          )}
-                          {detail?.image_urls && detail.image_urls.length > 0 && (
-                            <div className="mt-2 flex flex-wrap gap-1">
-                              {detail.image_urls.map((url, i) => (
-                                <button key={i} type="button" onClick={() => setLightbox({ urls: detail.image_urls!, index: i })}>
-                                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                                  <img src={url} alt={`참고 ${i + 1}`} className="h-10 w-10 rounded object-cover border border-gray-200 hover:opacity-80" />
-                                </button>
-                              ))}
+                            {hasBidForCat && isInProgress && (
+                              <span className="mt-1 block text-[10px] font-medium text-green-700">
+                                {remaining72h ? `72시간 ${remaining72h} 남음` : "72시간 경과"}
+                              </span>
+                            )}
+                          </button>
+                          {hasDetail && catExpanded && (
+                            <div className="border-t border-gray-200/80 px-2.5 pb-2.5 pt-1.5 md:px-3 md:pb-3 md:pt-2">
+                              {subs.length > 0 && (
+                                <ol className="space-y-0.5 pl-3 text-[11px] text-gray-600">
+                                  {subs.map((s, si) => (
+                                    <li key={si}><span className="text-gray-400">{si + 1}.</span> {s}</li>
+                                  ))}
+                                </ol>
+                              )}
+                              {detail?.requirements?.trim() && (
+                                <div className="mt-1.5 md:mt-2 rounded border border-gray-200 bg-white px-2.5 py-1.5">
+                                  <p className="mb-0.5 text-[10px] font-semibold text-gray-500">소비자 요구사항</p>
+                                  <p className="text-[11px] text-gray-700 whitespace-pre-line leading-relaxed">{detail.requirements}</p>
+                                </div>
+                              )}
+                              {detail?.image_urls && detail.image_urls.length > 0 && (
+                                <div className="mt-2 flex flex-wrap gap-1">
+                                  {detail.image_urls.map((url, i) => (
+                                    <button key={i} type="button" onClick={(e) => { e.stopPropagation(); setLightbox({ urls: detail.image_urls!, index: i }); }}>
+                                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                                      <img src={url} alt={`참고 ${i + 1}`} className="h-10 w-10 rounded object-cover border border-gray-200 hover:opacity-80" />
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
                           )}
                           {catStatus !== "계약완료" && catStatus !== "매칭실패" && (
-                            <div className="mt-3 flex justify-end">
+                            <div className="border-t border-gray-200/80 px-2.5 py-2 flex justify-end md:px-3">
                               <button
                                 type="button"
-                                onClick={() => openBidModal(p, g.cat)}
+                                onClick={(e) => { e.stopPropagation(); openBidModal(p, g.cat); }}
                                 className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-[11px] font-medium text-white hover:bg-indigo-700"
                               >
                                 {hasBidForCat ? "견적수정" : "견적내기"}
@@ -686,6 +756,7 @@ export default function ProviderEstimatesPage() {
                     )}
                   </div>
                 </div>
+                )}
               </div>
             );
           })}
@@ -767,7 +838,7 @@ export default function ProviderEstimatesPage() {
         </div>
       )}
 
-      {lightbox && <Lightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
+      {lightbox && <ChatImageLightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
 
       {alertMessage && (
         <AlertModal

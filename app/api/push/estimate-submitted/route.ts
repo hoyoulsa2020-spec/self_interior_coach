@@ -58,7 +58,8 @@ export async function POST(request: NextRequest) {
         url: `${SITE_URL}/dashboard/projects`,
         tag: "estimate-submitted",
       },
-      "estimate-submitted"
+      "estimate-submitted",
+      "progress"
     );
 
     return NextResponse.json({

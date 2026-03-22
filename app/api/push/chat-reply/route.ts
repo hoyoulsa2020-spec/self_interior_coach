@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
         url,
         tag: "selco-chat-reply",
       },
-      "chat-reply"
+      "chat-reply",
+      "chat"
     );
 
     return NextResponse.json({

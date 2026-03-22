@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { pyeongToM2 } from "@/lib/area";
+import { normalizeWorkLabel, normalizeWorkTreeGroup } from "@/lib/workTreeLabels";
 import AddressSearchLayer from "@/components/AddressSearchLayer";
 
 type ProcessRow = { id: string; name: string };
@@ -12,6 +13,7 @@ type WorkItem = {
   key: string;
   label: string;
   categoryName: string;
+  itemType: "category" | "subcategory";
   isCustom?: boolean;
 };
 
@@ -59,6 +61,8 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   const [workItems, setWorkItems] = useState<WorkItem[]>([]);
   const [subInputs, setSubInputs] = useState<Record<string, string>>({});
   const [catInput, setCatInput] = useState("");
+  const [showPresetCategoryPicker, setShowPresetCategoryPicker] = useState(false);
+  const [selectedPresetCategoryNames, setSelectedPresetCategoryNames] = useState<string[]>([]);
 
   const [catDetails, setCatDetails] = useState<Record<string, CatDetail>>({});
 
@@ -134,11 +138,16 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
             : initialData.category?.length
               ? [...new Set(initialData.category)].map((cat) => ({ cat, subs: [] as string[] }))
               : [];
+        tree = tree.map((g) => normalizeWorkTreeGroup(g));
         const items: WorkItem[] = [];
         tree.forEach((g, gi) => {
-          items.push({ key: `cat-${g.cat}-${gi}`, label: g.cat, categoryName: g.cat });
+          const cat = g.cat;
+          items.push({ key: `cat-${cat}-${gi}`, label: cat, categoryName: cat, itemType: "category" });
           g.subs.forEach((s, si) => {
-            items.push({ key: `sub-${g.cat}-${si}`, label: s, categoryName: g.cat });
+            const label = normalizeWorkLabel(s);
+            if (!label) return;
+            // gi 포함: 동일 대공정명이 work_tree에 두 번 있어도 하위공정 key 충돌 방지
+            items.push({ key: `sub-${gi}-${si}-${cat}`, label, categoryName: cat, itemType: "subcategory" });
           });
         });
         setWorkItems(items.length > 0 ? items : []);
@@ -155,17 +164,8 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
         });
         setCatDetails(details);
       } else {
-        const defaultItems: WorkItem[] = [];
-        cats.forEach((cat) => {
-          defaultItems.push({ key: `cat-${cat.id}`, label: cat.name, categoryName: cat.name });
-          cat.processes.forEach((proc) => {
-            defaultItems.push({ key: `proc-${proc.id}`, label: proc.name, categoryName: cat.name });
-          });
-        });
-        setWorkItems(defaultItems);
-        const details: Record<string, CatDetail> = {};
-        cats.forEach((cat) => { details[cat.name] = { requirements: "", files: [], previewUrls: [] }; });
-        setCatDetails(details);
+        setWorkItems([]);
+        setCatDetails({});
       }
     };
     load();
@@ -179,17 +179,56 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   const addSubItem = (catName: string) => {
     const text = (subInputs[catName] ?? "").trim();
     if (!text) return;
-    setWorkItems((prev) => [...prev, { key: `custom-sub-${catName}-${Date.now()}`, label: text, categoryName: catName, isCustom: true }]);
+    setWorkItems((prev) => [...prev, { key: `custom-sub-${catName}-${Date.now()}`, label: text, categoryName: catName, itemType: "subcategory", isCustom: true }]);
     setSubInputs((prev) => ({ ...prev, [catName]: "" }));
   };
 
   const addCatItem = () => {
     const text = catInput.trim();
     if (!text) return;
+    if (workItems.some((item) => item.itemType === "category" && item.categoryName === text)) {
+      setCatInput("");
+      return;
+    }
     const key = `custom-cat-${Date.now()}`;
-    setWorkItems((prev) => [...prev, { key, label: text, categoryName: text, isCustom: true }]);
+    setWorkItems((prev) => [...prev, { key, label: text, categoryName: text, itemType: "category", isCustom: true }]);
     setCatDetails((prev) => ({ ...prev, [text]: { requirements: "", files: [], previewUrls: [] } }));
     setCatInput("");
+  };
+
+  const togglePresetCategorySelection = (catName: string) => {
+    setSelectedPresetCategoryNames((prev) =>
+      prev.includes(catName) ? prev.filter((name) => name !== catName) : [...prev, catName]
+    );
+  };
+
+  const addPresetCategories = () => {
+    const targets = categoriesData.filter((cat) => selectedPresetCategoryNames.includes(cat.name));
+    if (targets.length === 0) return;
+
+    const stamp = Date.now();
+    const nextItems: WorkItem[] = targets.flatMap((cat, catIdx) => [
+      { key: `cat-${cat.id}-${stamp}-${catIdx}`, label: cat.name, categoryName: cat.name, itemType: "category" as const },
+      ...cat.processes
+        .filter((proc) => proc.name?.trim())
+        .map((proc, idx) => ({
+          key: `proc-${cat.id}-${proc.id}-${stamp}-${catIdx}-${idx}`,
+          label: proc.name.trim(),
+          categoryName: cat.name,
+          itemType: "subcategory" as const,
+        })),
+    ]);
+
+    setWorkItems((prev) => [...prev, ...nextItems]);
+    setCatDetails((prev) => {
+      const next = { ...prev };
+      targets.forEach((cat) => {
+        next[cat.name] = prev[cat.name] ?? { requirements: "", files: [], previewUrls: [], existingUrls: [] };
+      });
+      return next;
+    });
+    setSelectedPresetCategoryNames([]);
+    setShowPresetCategoryPicker(false);
   };
 
   const updateRequirements = (catName: string, value: string) => {
@@ -252,10 +291,10 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
 
     // 신규 생성 시: 대공정마다 하위공정 1개 이상 필수
     if (!isEdit) {
-      const mainCats = workItems.filter((w) => w.key.startsWith("cat-") || w.key.startsWith("custom-cat-"));
+      const mainCats = workItems.filter((w) => w.itemType === "category");
       const catsWithoutSubs = mainCats.filter((mc) => {
         const subCount = workItems.filter(
-          (w) => w.categoryName === mc.categoryName && !w.key.startsWith("cat-") && !w.key.startsWith("custom-cat-")
+          (w) => w.categoryName === mc.categoryName && w.itemType === "subcategory"
         ).length;
         return subCount === 0;
       });
@@ -270,7 +309,10 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
 
     // 대공정별 이미지 업로드
     const workDetailsResult: Record<string, { requirements: string; image_urls: string[]; subs?: string[] }> = {};
-    const topCatNames = [...new Set(workItems.map((w) => w.categoryName))];
+    const topCatNames = workItems
+      .filter((w) => w.itemType === "category")
+      .map((w) => w.categoryName)
+      .filter((name, index, arr) => arr.indexOf(name) === index);
 
     for (let ci = 0; ci < topCatNames.length; ci++) {
       const catName = topCatNames[ci];
@@ -296,11 +338,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
         }
       }
       const subs = workItems
-        .filter((w) =>
-          w.categoryName === catName &&
-          !w.key.startsWith("cat-") &&
-          !w.key.startsWith("custom-cat-")
-        )
+        .filter((w) => w.categoryName === catName && w.itemType === "subcategory")
         .map((w) => w.label);
       workDetailsResult[catName] = { requirements: detail?.requirements ?? "", image_urls: imageUrls, subs };
     }
@@ -348,48 +386,26 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
     onClose();
   };
 
-  // 대공정 그룹 계산 — catItem 또는 procItems 중 하나라도 있는 경우만 렌더
-  const adminGrouped = categoriesData
-    .map((cat) => ({
-      cat,
-      catItem: workItems.find((w) => w.key === `cat-${cat.id}`),
-      procItems: workItems.filter((w) => w.categoryName === cat.name && w.key !== `cat-${cat.id}`),
-    }))
-    .filter(({ catItem, procItems }) => catItem != null || procItems.length > 0);
-
-  const customCatGroups = workItems
-    .filter((w) => w.key.startsWith("custom-cat-"))
+  const categoryGroups = workItems
+    .filter((w) => w.itemType === "category")
     .map((catItem) => ({
       catItem,
-      procItems: workItems.filter((w) => w.categoryName === catItem.categoryName && w.key !== catItem.key),
+      procItems: workItems.filter((w) => w.categoryName === catItem.categoryName && w.itemType === "subcategory"),
+      isCustom: catItem.isCustom || !categoriesData.some((cat) => cat.name === catItem.categoryName),
     }));
 
-  const editTree = isEdit && initialData
-    ? (initialData.work_tree && initialData.work_tree.length > 0
-        ? initialData.work_tree
-        : Object.keys(initialData.work_details ?? {}).length > 0
-          ? Object.keys(initialData.work_details!).map((cat) => ({
-              cat,
-              subs: (initialData.work_details![cat] as { subs?: string[] })?.subs ?? [],
-            }))
-          : initialData.category?.length
-            ? [...new Set(initialData.category)].map((cat) => ({ cat, subs: [] as string[] }))
-            : [])
-    : [];
-  const editGrouped = editTree.length > 0
-    ? editTree.map((g) => {
-        const catItem = workItems.find((w) => w.categoryName === g.cat && w.key.startsWith("cat-"));
-        const procItems = workItems.filter((w) =>
-          w.categoryName === g.cat &&
-          (w.key.startsWith("sub-") || w.key.startsWith("custom-sub-"))
-        );
-        return {
-          catItem: catItem ?? { key: `cat-${g.cat}`, label: g.cat, categoryName: g.cat },
-          procItems,
-          catLabel: g.cat,
-        };
-      })
-    : [];
+  const availablePresetCategories = useMemo(
+    () =>
+      categoriesData.filter(
+        (cat) => !workItems.some((item) => item.itemType === "category" && item.categoryName === cat.name)
+      ),
+    [categoriesData, workItems]
+  );
+
+  useEffect(() => {
+    const availableNames = new Set(availablePresetCategories.map((cat) => cat.name));
+    setSelectedPresetCategoryNames((prev) => prev.filter((name) => availableNames.has(name)));
+  }, [availablePresetCategories]);
 
   const renderCatDetail = (catName: string) => {
     const detail = catDetails[catName] ?? { requirements: "", files: [], previewUrls: [] };
@@ -597,8 +613,8 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
         ) : (
           /* 하위공정 있을 때: 태그 + 인라인 추가 버튼 */
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            {procItems.map((item) => (
-              <span key={item.key} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${tagCls(item.isCustom)}`}>
+            {procItems.map((item, pi) => (
+              <span key={`${item.key}-${pi}`} className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs ${tagCls(item.isCustom)}`}>
                 {item.label}
                 <button type="button" onClick={() => removeItem(item.key)} className="ml-0.5 text-gray-300 transition hover:text-red-500">
                   <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round">
@@ -635,7 +651,7 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
   return (
     <>
     <div className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-transparent px-4 py-4 sm:py-8 top-[var(--header-offset)]">
-      <div className="relative flex min-h-0 w-full max-w-xl flex-1 flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "min(92vh, calc(100svh - 4rem))" }}>
+      <div className="relative flex min-h-0 w-full max-w-[398px] sm:max-w-[500px] md:max-w-[600px] lg:max-w-[700px] flex-1 flex-col rounded-2xl bg-white shadow-xl overflow-hidden" style={{ maxHeight: "min(calc(85vh - 50px), calc(100svh - 4rem - 50px))" }}>
         {validationModal && (
           <div className="absolute inset-0 z-10 flex items-center justify-center rounded-2xl bg-black/50 px-4" onClick={() => setValidationModal(null)}>
             <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl" onClick={(e) => e.stopPropagation()}>
@@ -847,40 +863,90 @@ export default function ProjectCreateModal({ userId, userProfile, onClose, onCre
               </div>
             ) : (
               <div className="space-y-2">
-                {isEdit && editGrouped.length > 0
-                  ? (
-                    <>
-                      {editGrouped.map(({ catItem, procItems, catLabel }) =>
-                        renderCatBox(catItem.key, catLabel, catItem, procItems, true)
-                      )}
-                      {customCatGroups.map(({ catItem, procItems }) =>
-                        renderCatBox(catItem.key, catItem.categoryName, catItem, procItems, true)
-                      )}
-                    </>
-                  )
-                  : (
-                    <>
-                      {adminGrouped.map(({ cat, catItem, procItems }) =>
-                        renderCatBox(`cat-${cat.id}`, cat.name, catItem, procItems, false)
-                      )}
-                      {customCatGroups.map(({ catItem, procItems }) =>
-                        renderCatBox(catItem.key, catItem.categoryName, catItem, procItems, true)
-                      )}
-                    </>
-                  )}
+                {categoryGroups.length > 0 ? (
+                  <>
+                    {categoryGroups.map(({ catItem, procItems, isCustom }) =>
+                      renderCatBox(catItem.key, catItem.categoryName, catItem, procItems, isCustom)
+                    )}
+                  </>
+                ) : (
+                  <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-4 text-xs leading-relaxed text-gray-500">
+                    아직 선택된 대공정이 없습니다. 아래에서 대공정을 불러오거나 직접 만들어 주세요.
+                  </div>
+                )}
 
-                {/* 대공정 직접 추가 */}
+                <div className="rounded-xl border border-gray-200 bg-gray-50/70 p-3">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="text-xs font-semibold text-gray-700">기본 대공정 불러오기</p>
+                      <p className="mt-0.5 text-[11px] text-gray-400">선택 안 된 대공정을 탭하면 저장된 하위공정이 함께 추가됩니다.</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowPresetCategoryPicker((prev) => !prev)}
+                      className="shrink-0 rounded-xl border border-indigo-200 bg-white px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-50"
+                    >
+                      {showPresetCategoryPicker ? "목록 닫기" : "대공정 불러오기"}
+                    </button>
+                  </div>
+
+                  {showPresetCategoryPicker && (
+                    <div className="mt-3 space-y-3">
+                      <div className="flex flex-wrap gap-2">
+                        {availablePresetCategories.length > 0 ? (
+                          availablePresetCategories.map((cat) => {
+                            const selected = selectedPresetCategoryNames.includes(cat.name);
+                            return (
+                              <button
+                                key={cat.id}
+                                type="button"
+                                onClick={() => togglePresetCategorySelection(cat.name)}
+                                className={`rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                                  selected
+                                    ? "border-indigo-500 bg-indigo-600 text-white"
+                                    : "border-gray-200 bg-white text-gray-700 hover:border-indigo-300 hover:bg-indigo-50 hover:text-indigo-600"
+                                }`}
+                              >
+                                {cat.name}
+                              </button>
+                            );
+                          })
+                        ) : (
+                          <p className="text-[11px] text-gray-400">추가할 기본 대공정이 없습니다.</p>
+                        )}
+                      </div>
+                      {availablePresetCategories.length > 0 && (
+                        <div className="flex items-center justify-between gap-2">
+                          <p className="text-[11px] text-gray-400">
+                            {selectedPresetCategoryNames.length > 0
+                              ? `${selectedPresetCategoryNames.length}개 대공정 선택됨`
+                              : "여러 개를 선택한 뒤 한 번에 추가할 수 있어요."}
+                          </p>
+                          <button
+                            type="button"
+                            onClick={addPresetCategories}
+                            disabled={selectedPresetCategoryNames.length === 0}
+                            className="shrink-0 rounded-xl bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-indigo-300"
+                          >
+                            선택한 대공정 추가
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="flex gap-2 pt-1">
                   <input type="text" value={catInput} onChange={(e) => setCatInput(e.target.value)}
                     onKeyDown={(e) => e.key === "Enter" && (e.preventDefault(), addCatItem())}
-                    placeholder="대공정 직접 추가 (예: 조경공사)"
+                    placeholder="직접 대공정 만들기 (예: 조경공사)"
                     className="flex-1 rounded-xl border border-dashed border-gray-300 bg-white px-3 py-2 text-sm outline-none placeholder:text-gray-300 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100" />
                   <button type="button" onClick={addCatItem}
                     className="shrink-0 flex items-center gap-1.5 rounded-xl border border-indigo-200 bg-indigo-50 px-3 py-2 text-xs font-medium text-indigo-600 hover:bg-indigo-100">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                       <line x1="12" y1="5" x2="12" y2="19" /><line x1="5" y1="12" x2="19" y2="12" />
                     </svg>
-                    대공정 추가
+                    직접 추가
                   </button>
                 </div>
               </div>

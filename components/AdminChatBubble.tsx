@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -37,9 +38,6 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
   const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showEndedMessage, setShowEndedMessage] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -53,6 +51,14 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  /* 모달 열림 시 body 스크롤 방지, position:fixed로 레이아웃 점프 방지 */
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add("chat-open");
+      return () => document.body.classList.remove("chat-open");
+    }
+  }, [open]);
 
   const ensureThread = async () => {
     const { data: existing } = await supabase
@@ -79,45 +85,6 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
     }
     setThreadId(inserted.id);
     return inserted.id;
-  };
-
-  const handleResetChat = async () => {
-    if (!threadId || resetting) return;
-    setResetting(true);
-    if (userRole === "consumer") {
-      const { count } = await supabase
-        .from("admin_chat_messages")
-        .select("id", { count: "exact", head: true })
-        .eq("thread_id", threadId);
-      const hasMessages = (count ?? 0) > 0;
-      if (!hasMessages) {
-        const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", threadId);
-        setResetting(false);
-        setShowResetConfirm(false);
-        if (!delError) {
-          setThreadId(null);
-          setMessages([]);
-          setOpen(false);
-          await ensureThread();
-        } else {
-          setAlertMessage("채팅 종료에 실패했습니다.");
-        }
-        return;
-      }
-    }
-    const clearedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from("admin_chat_threads")
-      .update({ ended_at: clearedAt, ended_by: "user", user_cleared_at: clearedAt })
-      .eq("id", threadId);
-    setResetting(false);
-    setShowResetConfirm(false);
-    if (!error) {
-      if (userRole === "consumer") setShowEndedMessage(true);
-      else setOpen(false);
-    } else {
-      setAlertMessage(userRole === "consumer" ? "채팅 종료에 실패했습니다." : "채팅 초기화에 실패했습니다.");
-    }
   };
 
   const loadMessages = async (tid: string) => {
@@ -289,13 +256,30 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
   };
 
 
+  const chatHref = userRole === "consumer" ? "/dashboard/chat" : "/provider/chat";
+  const bubbleClass = `fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition active:scale-95 sm:right-6 ${isChatPage(pathname ?? "") ? "bottom-[calc(8rem+var(--safe-bottom))] sm:bottom-[calc(12rem+var(--safe-bottom))]" : "bottom-[calc(3rem+var(--safe-bottom))] sm:bottom-[calc(3.5rem+var(--safe-bottom))]"}`;
+
   return (
     <>
-      {/* 말풍선 버튼 - 우측 하단 고정 */}
+      {/* 모바일: Link로 채팅 페이지 이동 (전체화면). 데스크톱: 버튼 + 모달 */}
+      <Link
+        href={chatHref}
+        className={`${bubbleClass} bg-indigo-600 hover:bg-indigo-700 sm:hidden`}
+        aria-label="셀인코치에 문의하기"
+      >
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </Link>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-600 text-white shadow-lg transition hover:bg-indigo-700 active:scale-95 sm:right-6 ${isChatPage(pathname ?? "") ? "bottom-24 sm:bottom-40" : "bottom-4 sm:bottom-6"}`}
+        className={`${bubbleClass} hidden bg-indigo-600 hover:bg-indigo-700 sm:flex`}
         aria-label="셀인코치에 문의하기"
       >
         {unreadCount > 0 && (
@@ -308,40 +292,32 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
         </svg>
       </button>
 
-      {/* 채팅 레이어 (모달) */}
+      {/* PC 전용: 채팅 모달 */}
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
+        <div className="chat-modal-container">
+          <div className="absolute inset-0 bg-black/30 sm:bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className="relative z-10 flex w-full max-w-md flex-col bg-white shadow-xl rounded-t-2xl sm:rounded-2xl h-[85dvh] max-h-[85dvh] sm:h-[500px] sm:max-h-[90vh] pb-[env(safe-area-inset-bottom)]"
+            className="chat-app-shell relative z-10 sm:rounded-2xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
+            {/* Header: shrink-0, 항상 고정 */}
+            <div className="chat-app-shell-header flex items-center justify-between px-4 py-3">
               <h3 className="text-base font-semibold text-gray-800">셀인코치</h3>
-              <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  onClick={() => setShowResetConfirm(true)}
-                  className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-100 hover:text-gray-700"
-                  title={userRole === "consumer" ? "채팅 종료" : "채팅창 초기화"}
-                >
-                  {userRole === "consumer" ? "채팅 종료" : "채팅 초기화"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setOpen(false)}
-                  className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
-                  aria-label="닫기"
-                >
-                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                    <line x1="18" y1="6" x2="6" y2="18" />
-                    <line x1="6" y1="6" x2="18" y2="18" />
-                  </svg>
-                </button>
-              </div>
+              <button
+                type="button"
+                onClick={() => setOpen(false)}
+                className="rounded-lg p-2 text-gray-500 transition hover:bg-gray-100"
+                aria-label="닫기"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                  <line x1="18" y1="6" x2="6" y2="18" />
+                  <line x1="6" y1="6" x2="18" y2="18" />
+                </svg>
+              </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            {/* MessageList: flex-1 min-height-0, 이 영역만 스크롤 */}
+            <div className="chat-app-shell-messages p-4">
               {loading ? (
                 <div className="flex justify-center py-8 text-sm text-gray-500">메시지 불러오는 중...</div>
               ) : messages.length === 0 ? (
@@ -396,7 +372,8 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
               )}
             </div>
 
-            <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+            {/* Composer: shrink-0, 하단 고정, safe-area 반영 */}
+            <div className="chat-app-shell-composer p-3">
               {pendingImages.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {pendingImages.map((f, i) => (
@@ -473,43 +450,6 @@ export default function AdminChatBubble({ userRole, userId }: AdminChatBubblePro
           onClose={() => setAlertMessage(null)}
           variant="warning"
         />
-      )}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => setShowResetConfirm(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900">{userRole === "consumer" ? "채팅 종료" : "채팅창 초기화"}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-gray-600">
-              {userRole === "consumer"
-                ? "채팅을 종료하시겠습니까? 종료하신 채팅 내용은 종료된 채팅 메뉴에 보관됩니다."
-                : "채팅창을 초기화하면 더 이상 보이지 않습니다. 대화 내용은 종료된 채팅으로 저장됩니다. 계속하시겠습니까?"}
-            </p>
-            <div className="mt-6 flex gap-2">
-              <button
-                type="button"
-                onClick={() => setShowResetConfirm(false)}
-                className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 transition hover:bg-gray-50"
-              >
-                취소
-              </button>
-              <button
-                type="button"
-                onClick={handleResetChat}
-                disabled={resetting}
-                className="flex-1 rounded-xl bg-amber-600 py-2.5 text-sm font-semibold text-white transition hover:bg-amber-700 disabled:opacity-50"
-              >
-                {resetting ? "처리 중..." : userRole === "consumer" ? "종료" : "초기화"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showEndedMessage && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => { setShowEndedMessage(false); setOpen(false); }}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-center text-sm text-gray-700">종료하신 채팅 내용은 종료된 채팅 메뉴에 보관됩니다.</p>
-            <button type="button" onClick={() => { setShowEndedMessage(false); setOpen(false); }} className="mt-4 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">확인</button>
-          </div>
-        </div>
       )}
     </>
   );

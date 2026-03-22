@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
@@ -83,6 +84,14 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  /* 모달 열림 시 body 스크롤 방지, position:fixed로 레이아웃 점프 방지 */
+  useEffect(() => {
+    if (open) {
+      document.body.classList.add("chat-open");
+      return () => document.body.classList.remove("chat-open");
+    }
+  }, [open]);
 
   /**
    * 표시할 파트너 ID 집합 반환.
@@ -564,13 +573,30 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
   };
 
   const selectedPartner = partners.find((p) => p.id === selectedPartnerId);
+  const chatHref = userRole === "consumer" ? "/dashboard/provider-chat" : "/provider/consumer-chat";
+  const bubbleClass = `fixed right-4 z-[60] flex h-14 w-14 items-center justify-center rounded-full text-white shadow-lg transition active:scale-95 sm:right-6 ${isChatPage(pathname ?? "") ? "bottom-[calc(8rem+var(--safe-bottom))] sm:bottom-[calc(16rem+var(--safe-bottom))]" : "bottom-[calc(8rem+var(--safe-bottom))] sm:bottom-[calc(8rem+var(--safe-bottom))]"}`;
 
   return (
     <>
+      {/* 모바일: Link로 채팅 페이지 이동 (전체화면). 데스크톱: 버튼 + 모달 */}
+      <Link
+        href={chatHref}
+        className={`${bubbleClass} bg-emerald-600 hover:bg-emerald-700 sm:hidden`}
+        aria-label={userRole === "consumer" ? "업체와 채팅" : "소비자와 채팅"}
+      >
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 text-xs font-bold text-white">
+            {unreadCount > 99 ? "99+" : unreadCount}
+          </span>
+        )}
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+        </svg>
+      </Link>
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className={`fixed right-4 z-50 flex h-14 w-14 items-center justify-center rounded-full bg-emerald-600 text-white shadow-lg transition hover:bg-emerald-700 active:scale-95 sm:right-6 ${isChatPage(pathname ?? "") ? "bottom-24 sm:bottom-56" : "bottom-24 sm:bottom-24"}`}
+        className={`${bubbleClass} hidden bg-emerald-600 hover:bg-emerald-700 sm:flex`}
         aria-label={userRole === "consumer" ? "업체와 채팅" : "소비자와 채팅"}
       >
         {unreadCount > 0 && (
@@ -583,14 +609,16 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
         </svg>
       </button>
 
+      {/* PC 전용: 채팅 모달 */}
       {open && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setOpen(false)} aria-hidden />
+        <div className="chat-modal-container">
+          <div className="absolute inset-0 bg-black/30 sm:bg-black/40" onClick={() => setOpen(false)} aria-hidden />
           <div
-            className={`relative z-10 flex w-full max-w-md flex-col bg-white shadow-xl rounded-2xl pb-[env(safe-area-inset-bottom)] max-h-[90dvh] ${selectedPartner ? "h-[85dvh] sm:h-[500px] sm:max-h-[90vh]" : "h-[50dvh] max-h-[400px] sm:h-[380px]"}`}
+            className={`chat-app-shell relative z-10 sm:rounded-2xl ${!selectedPartner ? "sm:max-h-[400px]" : ""}`}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-3 py-2">
+            {/* Header: shrink-0, 항상 고정 */}
+            <div className="chat-app-shell-header flex items-center justify-between px-3 py-2">
               <div className="flex items-center gap-2">
                 {selectedPartner && (
                   <button
@@ -641,7 +669,8 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
             </div>
 
             {!selectedPartner ? (
-              <div className="min-h-0 flex-1 overflow-y-auto p-2 sm:p-3">
+              /* 파트너 목록: MessageList 영역, 스크롤 */
+              <div className="chat-app-shell-messages flex-1 min-h-0 overflow-y-auto p-2 sm:p-3">
                 {partnersLoading ? (
                   <div className="flex justify-center py-4 text-xs text-gray-500">목록 불러오는 중...</div>
                 ) : partners.length === 0 ? (
@@ -722,7 +751,8 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
               </div>
             ) : (
               <>
-                <div className="flex-1 overflow-y-auto p-4">
+                {/* MessageList: flex-1 min-height-0, 이 영역만 스크롤 */}
+                <div className="chat-app-shell-messages p-4">
                   {loading ? (
                     <div className="flex justify-center py-8 text-sm text-gray-500">메시지 불러오는 중...</div>
                   ) : messages.length === 0 ? (
@@ -776,7 +806,7 @@ export default function ConsumerProviderChatBubble({ userRole, userId }: Consume
                   )}
                 </div>
 
-                <div className="shrink-0 border-t border-gray-200 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <div className="chat-app-shell-composer p-3">
                   {pendingImages.length > 0 && (
                     <div className="mb-2 flex flex-wrap gap-1">
                       {pendingImages.map((f, i) => (

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef, useCallback } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { compressImage } from "@/lib/imageCompress";
@@ -358,13 +359,26 @@ export default function AdminChatPage() {
     }
   };
 
+  // 모바일: body 스크롤 금지
+  useEffect(() => {
+    const mq = window.matchMedia("(max-width: 640px)");
+    if (!mq.matches) return;
+    document.body.classList.add("chat-open");
+    return () => document.body.classList.remove("chat-open");
+  }, []);
+
   return (
-    <div className="flex h-[calc(100vh-8rem)] gap-4 overflow-hidden">
+    <div className="chat-fullpage-shell chat-fullpage-shell-sidebar flex min-h-0 flex-col gap-4 overflow-hidden md:flex-row">
       {/* 스레드 목록 - 모바일: 선택 전 전체, 선택 시 숨김. 데스크톱: 항상 표시 */}
       <div className={`flex w-full flex-col overflow-hidden rounded-xl border border-gray-200 bg-white md:w-72 md:shrink-0 ${selectedThread ? "hidden md:flex" : "flex"}`}>
-        <div className="border-b border-gray-200 px-4 py-3">
-          <h2 className="text-sm font-semibold text-gray-800">채팅 목록</h2>
-          <p className="mt-0.5 text-xs text-gray-500">소비자·시공업체와 1:1 채팅</p>
+        <div className="flex shrink-0 items-center gap-2 border-b border-gray-200 px-4 py-3">
+          <Link href="/admin" className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 md:hidden" aria-label="뒤로">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+          </Link>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-sm font-semibold text-gray-800">채팅 목록</h2>
+            <p className="mt-0.5 text-xs text-gray-500">소비자·시공업체와 1:1 채팅</p>
+          </div>
         </div>
         <div className="flex-1 overflow-y-auto overflow-x-visible">
           {loading ? (
@@ -402,10 +416,10 @@ export default function AdminChatPage() {
       </div>
 
       {/* 채팅 영역 - 모바일: 선택 시 전체, 선택 전 숨김. 데스크톱: 항상 표시 */}
-      <div className={`flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
+      <div className={`relative flex flex-1 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white ${selectedThread ? "flex" : "hidden md:flex"}`}>
         {selectedThread ? (
           <>
-            <div className="flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 px-4 py-3">
+            <div className="chat-modal-header flex shrink-0 items-center justify-between gap-2 border-b border-gray-200 bg-white px-4 py-3">
               <button
                 type="button"
                 onClick={() => setSelectedThread(null)}
@@ -427,7 +441,9 @@ export default function AdminChatPage() {
               </button>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-4">
+            {/* body: messages만 스크롤 (globals.css) */}
+            <div className="chat-modal-body flex flex-1 flex-col overflow-hidden">
+            <div className="chat-messages flex-1 overflow-y-auto p-4">
               {messagesLoading ? (
                 <div className="flex flex-col items-center justify-center py-16">
                   <span className="h-8 w-8 animate-spin rounded-full border-2 border-indigo-600 border-t-transparent" />
@@ -480,7 +496,7 @@ export default function AdminChatPage() {
               )}
             </div>
 
-            <div className="shrink-0 border-t border-gray-200 p-3">
+            <div className="chat-input-area shrink-0 border-t border-gray-200 p-3">
               {pendingImages.length > 0 && (
                 <div className="mb-2 flex flex-wrap gap-1">
                   {pendingImages.map((f, i) => (
@@ -540,6 +556,7 @@ export default function AdminChatPage() {
                   전송
                 </button>
               </div>
+            </div>
             </div>
           </>
         ) : (

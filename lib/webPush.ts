@@ -1,5 +1,6 @@
 import webpush from "web-push";
 import { createAdminClient } from "./supabaseAdmin";
+import { sendFcmToToken } from "./fcm";
 
 const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL || "https://sel-ko.co.kr";
 
@@ -39,23 +40,33 @@ async function logPush(
   });
 }
 
-/** 특정 사용자에게 푸시 발송 */
+/** 푸시 유형: chat=채팅, progress=진행상태(소비자), estimate=견적(시공업체) */
+export type PushType = "chat" | "progress" | "estimate" | "all";
+
+/** 특정 사용자에게 푸시 발송 (pushType 지정 시 해당 설정 켜진 구독자에게만) */
 export async function sendPushToUser(
   userId: string,
   payload: PushPayload,
-  source: PushSource = "admin-send"
+  source: PushSource = "admin-send",
+  pushType: PushType = "all"
 ): Promise<{ ok: number; fail: number }> {
   initWebPush();
   const supabase = createAdminClient();
-  const { data: subs } = await supabase
+  let query = supabase
     .from("push_subscriptions")
     .select("endpoint, p256dh, auth")
     .eq("user_id", userId)
     .eq("is_active", true);
 
+  if (pushType === "chat") query = query.eq("chat_push", true);
+  else if (pushType === "progress") query = query.eq("progress_push", true);
+  else if (pushType === "estimate") query = query.eq("estimate_push", true);
+
+  const { data: subs } = await query;
+
   if (!subs?.length) return { ok: 0, fail: 0 };
 
-  const body = JSON.stringify({
+  const webPushBody = JSON.stringify({
     title: payload.title,
     body: payload.body ?? "",
     icon: `${SITE_URL}/icon-192.png`,
@@ -67,21 +78,42 @@ export async function sendPushToUser(
   let fail = 0;
 
   for (const sub of subs) {
+    const isFcm = sub.endpoint?.startsWith("fcm:");
+    const fcmToken = isFcm ? sub.endpoint.slice(4) : null;
+
     try {
-      await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        body
-      );
-      ok++;
-      await logPush(supabase, userId, payload, source, "success");
+      if (isFcm && fcmToken) {
+        const sent = await sendFcmToToken(fcmToken, {
+          title: payload.title,
+          body: payload.body ?? "",
+          url: payload.url ?? "/",
+          tag: payload.tag ?? "selco-notification",
+        });
+        if (sent) {
+          ok++;
+          await logPush(supabase, userId, payload, source, "success");
+        } else {
+          fail++;
+          await logPush(supabase, userId, payload, source, "failed");
+        }
+      } else if (sub.p256dh && sub.auth) {
+        await webpush.sendNotification(
+          {
+            endpoint: sub.endpoint,
+            keys: { p256dh: sub.p256dh, auth: sub.auth },
+          },
+          webPushBody
+        );
+        ok++;
+        await logPush(supabase, userId, payload, source, "success");
+      }
     } catch (e) {
       fail++;
       await logPush(supabase, userId, payload, source, "failed");
       const status = (e as { statusCode?: number })?.statusCode;
-      if (status === 410 || status === 404) {
+      const code = (e as { code?: string })?.code;
+      const invalidToken = status === 410 || status === 404 || code?.includes("registration-token") || code?.includes("invalid-registration");
+      if (invalidToken) {
         await supabase.from("push_subscriptions").update({ is_active: false }).eq("endpoint", sub.endpoint);
       }
     }
@@ -112,7 +144,7 @@ export async function sendPushToAdmins(
 
   if (!subs?.length) return { ok: 0, fail: 0 };
 
-  const body = JSON.stringify({
+  const webPushBody = JSON.stringify({
     title: payload.title,
     body: payload.body ?? "",
     icon: `${SITE_URL}/icon-192.png`,
@@ -125,21 +157,39 @@ export async function sendPushToAdmins(
 
   for (const sub of subs) {
     const uid = (sub as { user_id?: string }).user_id;
+    const isFcm = sub.endpoint?.startsWith("fcm:");
+    const fcmToken = isFcm ? sub.endpoint.slice(4) : null;
+
     try {
-      await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        body
-      );
-      ok++;
-      if (uid) await logPush(supabase, uid, payload, source, "success");
+      if (isFcm && fcmToken) {
+        const sent = await sendFcmToToken(fcmToken, {
+          title: payload.title,
+          body: payload.body ?? "",
+          url: payload.url ?? "/",
+          tag: payload.tag ?? "selco-chat",
+        });
+        if (sent) {
+          ok++;
+          if (uid) await logPush(supabase, uid, payload, source, "success");
+        } else {
+          fail++;
+          if (uid) await logPush(supabase, uid, payload, source, "failed");
+        }
+      } else if (sub.p256dh && sub.auth) {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          webPushBody
+        );
+        ok++;
+        if (uid) await logPush(supabase, uid, payload, source, "success");
+      }
     } catch (e) {
       fail++;
       if (uid) await logPush(supabase, uid, payload, source, "failed");
       const status = (e as { statusCode?: number })?.statusCode;
-      if (status === 410 || status === 404) {
+      const code = (e as { code?: string })?.code;
+      const invalidToken = status === 410 || status === 404 || code?.includes("registration-token") || code?.includes("invalid-registration");
+      if (invalidToken) {
         await supabase.from("push_subscriptions").update({ is_active: false }).eq("endpoint", sub.endpoint);
       }
     }
@@ -162,7 +212,7 @@ export async function sendPushToAll(
 
   if (!subs?.length) return { ok: 0, fail: 0 };
 
-  const body = JSON.stringify({
+  const webPushBody = JSON.stringify({
     title: payload.title,
     body: payload.body ?? "",
     icon: `${SITE_URL}/icon-192.png`,
@@ -175,21 +225,39 @@ export async function sendPushToAll(
 
   for (const sub of subs) {
     const uid = (sub as { user_id?: string }).user_id;
+    const isFcm = sub.endpoint?.startsWith("fcm:");
+    const fcmToken = isFcm ? sub.endpoint.slice(4) : null;
+
     try {
-      await webpush.sendNotification(
-        {
-          endpoint: sub.endpoint,
-          keys: { p256dh: sub.p256dh, auth: sub.auth },
-        },
-        body
-      );
-      ok++;
-      if (uid) await logPush(supabase, uid, payload, source, "success");
+      if (isFcm && fcmToken) {
+        const sent = await sendFcmToToken(fcmToken, {
+          title: payload.title,
+          body: payload.body ?? "",
+          url: payload.url ?? "/",
+          tag: payload.tag ?? "selco-notification",
+        });
+        if (sent) {
+          ok++;
+          if (uid) await logPush(supabase, uid, payload, source, "success");
+        } else {
+          fail++;
+          if (uid) await logPush(supabase, uid, payload, source, "failed");
+        }
+      } else if (sub.p256dh && sub.auth) {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          webPushBody
+        );
+        ok++;
+        if (uid) await logPush(supabase, uid, payload, source, "success");
+      }
     } catch (e) {
       fail++;
       if (uid) await logPush(supabase, uid, payload, source, "failed");
       const status = (e as { statusCode?: number })?.statusCode;
-      if (status === 410 || status === 404) {
+      const code = (e as { code?: string })?.code;
+      const invalidToken = status === 410 || status === 404 || code?.includes("registration-token") || code?.includes("invalid-registration");
+      if (invalidToken) {
         await supabase.from("push_subscriptions").update({ is_active: false }).eq("endpoint", sub.endpoint);
       }
     }

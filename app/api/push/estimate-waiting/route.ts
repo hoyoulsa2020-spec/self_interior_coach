@@ -99,7 +99,7 @@ export async function POST(request: NextRequest) {
     let totalOk = 0;
     let totalFail = 0;
 
-    // 1. 소비자에게 푸시
+    // 1. 소비자에게 푸시 (진행상태 알림)
     const consumerResult = await sendPushToUser(
       consumerId,
       {
@@ -108,7 +108,8 @@ export async function POST(request: NextRequest) {
         url: `${SITE_URL}/dashboard/projects`,
         tag: "estimate-waiting",
       },
-      "estimate-waiting"
+      "estimate-waiting",
+      "progress"
     );
     totalOk += consumerResult.ok;
     totalFail += consumerResult.fail;
@@ -144,7 +145,8 @@ export async function POST(request: NextRequest) {
             url: providerUrl,
             tag: "estimate-waiting",
           },
-          "estimate-waiting"
+          "estimate-waiting",
+          "estimate"
         );
         totalOk += r.ok;
         totalFail += r.fail;

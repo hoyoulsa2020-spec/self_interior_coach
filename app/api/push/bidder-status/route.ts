@@ -70,7 +70,8 @@ export async function POST(request: NextRequest) {
         url,
         tag: "bidder-status",
       },
-      "bidder-status"
+      "bidder-status",
+      "estimate"
     );
 
     return NextResponse.json({

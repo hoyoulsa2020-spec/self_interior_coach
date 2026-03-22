@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { createPortal } from "react-dom";
 
 type ChatImageLightboxProps = {
   urls: string[];
@@ -61,14 +62,14 @@ export default function ChatImageLightbox({ urls, index, onClose }: ChatImageLig
     }
   };
 
-  return (
+  const lightboxContent = (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/90"
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/90"
       onClick={onClose}
     >
       <button
         type="button"
-        onClick={onClose}
+        onClick={(e) => { e.stopPropagation(); onClose(); }}
         className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20"
         aria-label="닫기"
       >
@@ -87,7 +88,7 @@ export default function ChatImageLightbox({ urls, index, onClose }: ChatImageLig
               setCur((c) => Math.max(c - 1, 0));
             }}
             disabled={cur === 0}
-            className="absolute left-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30"
+            className="absolute left-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30"
             aria-label="이전"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -101,7 +102,7 @@ export default function ChatImageLightbox({ urls, index, onClose }: ChatImageLig
               setCur((c) => Math.min(c + 1, urls.length - 1));
             }}
             disabled={cur === urls.length - 1}
-            className="absolute right-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30"
+            className="absolute right-4 top-1/2 z-10 -translate-y-1/2 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30"
             aria-label="다음"
           >
             <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
@@ -146,4 +147,7 @@ export default function ChatImageLightbox({ urls, index, onClose }: ChatImageLig
       </div>
     </div>
   );
+
+  if (typeof document === "undefined") return lightboxContent;
+  return createPortal(lightboxContent, document.body);
 }

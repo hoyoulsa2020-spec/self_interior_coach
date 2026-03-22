@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import ChatImageLightbox from "@/components/ChatImageLightbox";
 import ProviderSearchBar from "@/components/ProviderSearchBar";
 
 type Inquiry = {
@@ -32,41 +33,6 @@ const PAGE_SIZE = 10;
 function isImageUrl(url: string): boolean {
   const ext = url.split(".").pop()?.toLowerCase().split("?")[0] ?? "";
   return ["jpg", "jpeg", "png", "gif", "webp"].includes(ext);
-}
-
-function Lightbox({ urls, index, onClose }: { urls: string[]; index: number; onClose: () => void }) {
-  const [cur, setCur] = useState(index);
-  useEffect(() => {
-    const h = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowRight") setCur((c) => Math.min(c + 1, urls.length - 1));
-      if (e.key === "ArrowLeft") setCur((c) => Math.max(c - 1, 0));
-    };
-    window.addEventListener("keydown", h);
-    return () => window.removeEventListener("keydown", h);
-  }, [urls.length, onClose]);
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 backdrop-blur-sm" onClick={onClose}>
-      <button onClick={onClose} className="absolute right-4 top-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
-      </button>
-      {urls.length > 1 && (
-        <>
-          <button onClick={(e) => { e.stopPropagation(); setCur((c) => Math.max(c - 1, 0)); }} disabled={cur === 0}
-            className="absolute left-4 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="15 18 9 12 15 6"/></svg>
-          </button>
-          <button onClick={(e) => { e.stopPropagation(); setCur((c) => Math.min(c + 1, urls.length - 1)); }} disabled={cur === urls.length - 1}
-            className="absolute right-4 top-1/2 -translate-y-1/2 z-10 rounded-full bg-white/10 p-2.5 text-white transition hover:bg-white/20 disabled:opacity-30">
-            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="9 18 15 12 9 6"/></svg>
-          </button>
-        </>
-      )}
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={urls[cur]} alt="" onClick={(e) => e.stopPropagation()} className="max-h-[85vh] max-w-[90vw] rounded-xl object-contain shadow-2xl" />
-      {urls.length > 1 && <p className="absolute bottom-6 left-1/2 -translate-x-1/2 rounded-full bg-black/50 px-3 py-1 text-xs text-white">{cur + 1} / {urls.length}</p>}
-    </div>
-  );
 }
 
 function ConsumerContact({ phone }: { phone: string | null }) {
@@ -513,7 +479,7 @@ export default function ProviderInquiriesPage() {
           </div>
         </div>
       )}
-      {lightbox && <Lightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
+      {lightbox && <ChatImageLightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
     </div>
   );
 }

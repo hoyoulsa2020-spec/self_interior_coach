@@ -10,14 +10,34 @@ Capacitor를 사용해 iOS/Android 네이티브 앱으로 빌드합니다.
 
 ## 빌드 및 실행
 
+### 로컬 테스트 (빠른 개발)
+
 ```bash
-# 웹 자산 동기화 (www → android/ios)
+# 1. 터미널 1: 반드시 먼저 실행 (안 하면 연결 오류)
+npm run dev
+
+# 2. 터미널 2: dev 서버 뜬 뒤 실행
+npm run cap:dev        # Android 에뮬레이터 (10.0.2.2:3000)
+npm run cap:dev:ios    # iOS 시뮬레이터 (macOS만)
+```
+
+> **실기기**에서 테스트 시: `CAPACITOR_SERVER_URL=http://<내PC_IP>:3000 npm run cap:sync` 후 Android Studio에서 실행
+
+### 프로덕션 (sel-ko.co.kr)
+
+```bash
+# Vercel 배포 후 앱에서 sel-ko.co.kr 로드
+npm run cap:prod       # Android
+```
+
+### 기타
+
+```bash
+# 웹 자산 동기화만 (www → android/ios)
 npm run cap:sync
 
-# Android 에뮬레이터/기기에서 실행
+# Android Studio / Xcode 직접 열기
 npm run cap:android
-
-# iOS 시뮬레이터/기기에서 실행 (macOS만)
 npm run cap:ios
 ```
 
@@ -27,16 +47,9 @@ npm run cap:ios
 
 1. [Supabase Dashboard](https://supabase.com/dashboard) → 프로젝트 → Authentication → URL Configuration
 2. **Redirect URLs**에 추가:
-   - `https://sel-ko.co.kr/**` (웹 + 앱 원격 URL)
+   - `https://sel-ko.co.kr/**` (웹 + 앱 프로덕션)
    - `capacitor://localhost/**` (로컬 개발 시)
-
-## 환경 변수 (선택)
-
-개발용으로 다른 URL을 쓰려면:
-
-```bash
-CAPACITOR_SERVER_URL=https://your-preview.vercel.app npm run cap:android
-```
+   - `http://localhost:3000/**` (로컬 개발 시)
 
 ## 푸시 알림
 

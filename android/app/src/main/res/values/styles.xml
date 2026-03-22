@@ -20,7 +20,7 @@
         <item name="android:windowBackground">@drawable/splash_solid</item>
         <item name="android:background">@drawable/splash_solid</item>
         <!-- Android 12+ 확대 아이콘 숨김, 배경만 흰색 -->
-        <item name="windowSplashScreenBackground">@color/ic_launcher_background</item>
+        <item name="windowSplashScreenBackground">@color/splash_background</item>
         <item name="windowSplashScreenAnimatedIcon">@drawable/transparent_splash_icon</item>
     </style>
 </resources>

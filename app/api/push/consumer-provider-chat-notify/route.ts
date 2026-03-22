@@ -64,7 +64,8 @@ export async function POST(request: NextRequest) {
         url,
         tag: "selco-cp-chat",
       },
-      "consumer-provider-chat-notify"
+      "consumer-provider-chat-notify",
+      "chat"
     );
 
     return NextResponse.json({

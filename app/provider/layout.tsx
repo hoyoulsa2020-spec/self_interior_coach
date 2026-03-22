@@ -371,9 +371,11 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
 
   return (
     <ProviderLayoutContext.Provider value={{ sidebarCollapsed }}>
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen min-h-[100dvh] bg-gray-50">
       {/* 상단 헤더 */}
-      <header className="fixed top-0 left-0 right-0 z-30 flex h-14 items-center justify-between border-b border-gray-200 bg-white px-4 shadow-sm pt-[var(--safe-top)]">
+      <header className="fixed top-0 left-0 right-0 z-[120] flex flex-col border-b border-gray-200 bg-white shadow-sm">
+        <div className="h-[var(--safe-top)] shrink-0" aria-hidden />
+        <div className="flex h-14 shrink-0 items-center justify-between px-4">
         <div className="flex items-center gap-3">
           <button
             type="button"
@@ -406,16 +408,17 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
             로그아웃
           </button>
         </div>
+        </div>
       </header>
 
       {/* 모바일 오버레이 */}
       {sidebarOpen && (
-        <div className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={closeSidebar} />
+        <div className="fixed inset-0 z-[200] bg-black/40 lg:hidden" onClick={closeSidebar} aria-hidden />
       )}
 
-      {/* 사이드바 */}
+      {/* 사이드바 — AI 풀스크린(z-100)보다 위 */}
       <aside
-        className={`fixed top-0 left-0 z-50 flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out pt-[var(--safe-top)]
+        className={`fixed top-0 left-0 z-[210] flex h-full w-60 flex-col bg-white shadow-xl transition-all duration-300 ease-in-out pt-[var(--safe-top)]
           lg:translate-x-0 lg:shadow-none lg:border-r lg:border-gray-200
           ${sidebarCollapsed ? "lg:w-16" : "lg:w-60"}
           ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}`}
@@ -637,22 +640,30 @@ export default function ProviderLayout({ children }: { children: React.ReactNode
         </div>
       </aside>
 
-      {/* 본문 */}
-      <main className={`min-h-screen pt-[var(--header-offset)] ${mainPl}`}>
-        <div className="p-4 sm:p-6">{children}</div>
+      {/* 본문. 모바일 채팅 페이지: 전체화면 오버레이 (카카오톡 스타일) */}
+      <main className={`min-h-screen min-h-[100dvh] pt-[var(--header-offset)] pb-[var(--safe-bottom)] ${mainPl}`}>
+        <div
+          className={`p-4 sm:p-6 ${
+            pathname?.startsWith("/provider/chat") || pathname?.startsWith("/provider/consumer-chat")
+              ? "max-sm:fixed max-sm:inset-x-0 max-sm:bottom-0 max-sm:top-[var(--header-offset)] max-sm:z-20 max-sm:flex max-sm:flex-col max-sm:p-0 max-sm:bg-white max-sm:overflow-hidden sm:flex sm:min-h-0 sm:flex-col chat-fullscreen-mobile"
+              : ""
+          }`}
+        >
+          {pathname?.startsWith("/provider/chat") || pathname?.startsWith("/provider/consumer-chat") ? (
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">{children}</div>
+          ) : (
+            children
+          )}
+        </div>
       </main>
 
-      {/* 셀인코치 채팅 말풍선 (채팅 페이지 제외, 견적대기 페이지 모바일에서는 숨김) */}
-      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
-        <div className={pathname?.startsWith("/provider/estimates") ? "hidden md:block" : ""}>
-          <AdminChatBubble userRole="provider" userId={userId} />
-        </div>
+      {/* 셀인코치 채팅 말풍선 (채팅/프로필/공사금액제안 제외 - 프로필에서 푸시 토글 가림) */}
+      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && !pathname?.startsWith("/provider/profile") && !pathname?.startsWith("/provider/estimates") && (
+        <AdminChatBubble userRole="provider" userId={userId} />
       )}
-      {/* 소비자와의 채팅 말풍선 (채팅 페이지 제외, 견적대기 페이지 모바일에서는 숨김) */}
-      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && (
-        <div className={pathname?.startsWith("/provider/estimates") ? "hidden md:block" : ""}>
-          <ConsumerProviderChatBubble userRole="provider" userId={userId} />
-        </div>
+      {/* 소비자와의 채팅 말풍선 (채팅/프로필/공사금액제안 제외) */}
+      {userId && !pathname?.startsWith("/provider/chat") && !pathname?.startsWith("/provider/consumer-chat") && !pathname?.startsWith("/provider/profile") && !pathname?.startsWith("/provider/estimates") && (
+        <ConsumerProviderChatBubble userRole="provider" userId={userId} />
       )}
     </div>
     </ProviderLayoutContext.Provider>

@@ -3,36 +3,49 @@
 :root {
   --background: #ffffff;
   --foreground: #171717;
-  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-top: 0px;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
   --header-offset: calc(3.5rem + var(--safe-top));
-}
-
-/* 모바일/앱: Android WebView는 env가 0일 수 있음 → 최소 24px 보장 */
-@media (max-width: 1024px) {
-  :root {
-    --safe-top: max(env(safe-area-inset-top, 0px), 24px);
-  }
+  /* AppViewportHeight에서 실시간 설정. fallback */
+  --app-height: 100dvh;
+  --keyboard-height: 0px;
 }
 
 @theme inline {
   --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-/* 다크 모드 비활성화: 스마트폰에서 배경 어둡고 입력 글씨 안 보이는 문제 방지 */
-/* @media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
-} */
-
+/* html/body: 채팅 모달 열릴 때 body 스크롤 방지 */
+html {
+  height: 100%;
+}
 body {
+  min-height: 100%;
   background: var(--background);
   color: var(--foreground);
   font-family: Arial, Helvetica, sans-serif;
+}
+
+/* body.chat-open: 채팅 모달/패널 열림 시 body 스크롤 금지 */
+body.chat-open {
+  overflow: hidden;
+}
+
+/* 앱 모드: Capacitor WebView */
+body[data-app-mode="true"] .app-viewport {
+  position: fixed;
+  top: var(--safe-top);
+  bottom: var(--safe-bottom);
+  left: 0;
+  right: 0;
+  overflow: auto;
+  -webkit-overflow-scrolling: touch;
+}
+body[data-app-mode="true"] main {
+  padding-bottom: 0;
 }
 
 /* 스마트폰 다크모드에서 input 글씨 안 보이는 문제 방지 */
@@ -40,54 +53,712 @@ input, textarea, select {
   color: #171717;
 }
 
-@keyframes splash-scale-in {
-  0% {
-    opacity: 0;
-    transform: scale(0.5);
-  }
-  100% {
-    opacity: 1;
-    transform: scale(1);
+/* ============================================
+   모바일 채팅 UI: AppShell 구조
+   Header(고정) | MessageList(스크롤) | Composer(고정)
+   - 100dvh 대신 var(--app-height) 사용 (키보드 시 자동 감소)
+   - flex column, min-height: 0으로 MessageList만 스크롤
+   ============================================ */
+
+/* 채팅 모달 컨테이너: 모바일 전체화면, PC 중앙 */
+.chat-modal-container {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  /* 모바일: --app-height로 전체 화면. 키보드 올라오면 자동 감소 */
+  height: var(--app-height);
+  height: 100dvh; /* fallback */
+}
+@media (min-width: 640px) {
+  .chat-modal-container {
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: transparent;
   }
 }
 
+/* AppShell: flex column, Header | MessageList | Composer */
+.chat-app-shell {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+  background: white;
+}
+@media (min-width: 640px) {
+  .chat-app-shell {
+    flex: none;
+    height: 500px;
+    max-height: 90vh;
+    width: 100%;
+    max-width: 28rem;
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+  }
+}
+
+/* Header: shrink-0, 항상 고정. 모바일 전체화면: 상단메뉴바 아래 고정 */
+.chat-app-shell-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-200, #e5e7eb);
+  background: white;
+  z-index: 10;
+}
+@media (max-width: 639px) {
+  .chat-fullscreen-mobile .chat-app-shell-header,
+  .chat-fullscreen-mobile .chat-list-shell-header {
+    position: sticky;
+    top: 0;
+    z-index: 20;
+    flex-shrink: 0;
+  }
+}
+
+/* MessageList: flex-1 min-height-0 overflow-y-auto, 스크롤만 이 영역 */
+.chat-app-shell-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+
+/* Composer: shrink-0, 하단 고정. safe-area 반영 */
+.chat-app-shell-composer {
+  flex-shrink: 0;
+  border-top: 1px solid var(--gray-200, #e5e7eb);
+  background: white;
+  z-index: 10;
+  padding-bottom: max(0.75rem, var(--safe-bottom, 0px));
+}
+
+/* ============================================
+   레거시 호환: chat-modal, chat-modal-header 등
+   (기존 클래스명 유지)
+   ============================================ */
+.chat-modal {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+}
+.chat-modal-header {
+  flex-shrink: 0;
+  border-bottom: 1px solid var(--gray-200, #e5e7eb);
+  background: white;
+  z-index: 10;
+}
+.chat-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+.chat-messages {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+}
+.chat-input-area {
+  flex-shrink: 0;
+  border-top: 1px solid var(--gray-200, #e5e7eb);
+  background: white;
+  z-index: 10;
+  padding-bottom: max(0.75rem, var(--safe-bottom, 0px));
+}
+
+/* ============================================
+   전체 페이지 채팅 (UserChatPage, ConsumerProviderChatPage)
+   모바일: --app-height - 헤더 - 패딩. 데스크톱: calc(100vh - 8rem)
+   ============================================ */
+.chat-fullpage-shell {
+  display: flex;
+  flex-direction: column !important; /* Header | MessageList | Composer 항상 세로 배치 */
+  min-height: 0;
+  overflow: hidden;
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid var(--gray-200, #e5e7eb);
+  /* PC: 고정 높이. 모바일: --app-height 기반 (AppViewportHeight가 클라이언트에서 설정) */
+  height: calc(100vh - 8rem);
+}
+/* PC: 리스트 좌측, 채팅 우측 (두 패널 레이아웃에만 적용) */
+@media (min-width: 768px) {
+  .chat-fullpage-shell.chat-fullpage-shell-sidebar {
+    flex-direction: row !important;
+  }
+}
+@media (max-width: 639px) {
+  .chat-fullpage-shell {
+    height: calc(var(--app-height, 100dvh) - var(--header-offset) - var(--safe-bottom) - 2rem);
+  }
+  /* 모바일 채팅 페이지 전체화면 래퍼 내부: 100% 높이 */
+  .chat-fullscreen-mobile .chat-fullpage-shell {
+    height: 100%;
+    min-height: 0;
+    border-radius: 0;
+    border: none;
+  }
+}
+
+@keyframes splash-scale-in {
+  0% { opacity: 0; transform: scale(0.5); }
+  100% { opacity: 1; transform: scale(1); }
+}
 @keyframes splash-fade-up {
+  0% { opacity: 0; transform: translateY(16px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+@keyframes splash-fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+.splash-logo { opacity: 0; }
+.splash-text { opacity: 0; }
+.splash-bar { opacity: 0; }
+@keyframes splash-progress {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(0); }
+}
+
+/* 대시보드 AI 말풍선 애니메이션 */
+@keyframes bubble-enter {
+  0% { opacity: 0; transform: translateY(6px) scale(0.96); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes bubble-gentle-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.12); }
+}
+.animate-bubble {
+  animation: bubble-enter 0.5s ease-out forwards,
+    bubble-gentle-pulse 2.5s ease-in-out 0.6s infinite;
+}
+
+/* 작은 도움말 말풍선: 튀어 오르는 느낌만 (무한 펄스 없음) */
+@keyframes bubble-pop {
   0% {
     opacity: 0;
-    transform: translateY(16px);
+    transform: translateY(4px) scale(0.92);
+  }
+  70% {
+    transform: translateY(0) scale(1.03);
   }
   100% {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+.animate-bubble-cute {
+  animation: bubble-pop 0.55s cubic-bezier(0.34, 1.45, 0.64, 1) forwards;
+}
+
+/* ========== 쉬운 AI (ProjectCreateAIModal) ==========
+   모바일 우선: 폰(Android/iOS)은 기본값이 곧 풀페이지 — max-width 미디어에 의존하지 않음.
+   PC만 (min-width: 1024px) 중앙 모달. */
+
+/* ----- 모바일·태블릿 기본: 헤더 아래 흰 풀페이지 ----- */
+.project-create-ai-shell {
+  position: fixed;
+  z-index: 100;
+  top: var(--header-offset);
+  left: 0;
+  right: 0;
+  bottom: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background: #fff;
+  min-height: 0;
+}
+
+/* ----- 데스크톱: dim + 중앙 카드 ----- */
+@media (min-width: 1024px) {
+  .project-create-ai-shell {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(0, 0, 0, 0.5);
+    min-height: 0;
+    width: auto;
+    max-width: none;
+  }
+}
+
+/* ----- 패널: 모바일 기본 전체 ----- */
+.project-create-ai-panel {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  width: 100%;
+  max-width: none;
+  height: auto;
+  background: #fff;
+  border-radius: 0;
+  box-shadow: none;
+  padding-bottom: max(0.75rem, var(--safe-bottom, env(safe-area-inset-bottom, 0px)));
+}
+
+@media (min-width: 1024px) {
+  .project-create-ai-panel {
+    flex: 0 1 auto;
+    max-width: 32rem;
+    width: 100%;
+    height: min(75vh, 90dvh);
+    border-radius: 1rem;
+    box-shadow: 0 25px 50px -12px rgb(0 0 0 / 0.25);
+    padding-bottom: 0;
+  }
+}
+
+/* 관리자 지도: 혼자 있는 지점 — 집계 숫자 + 천천히 퍼지는 레이더 링 (CustomOverlay) */
+.kakao-solo-wrap {
+  position: relative;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.kakao-solo-inner {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform: translate(-50%, -50%);
+  width: 100px;
+  height: 100px;
+  pointer-events: none;
+}
+
+.kakao-solo-rings {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kakao-solo-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 18px;
+  height: 18px;
+  margin-left: -9px;
+  margin-top: -9px;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 1.5px solid var(--solo-radar, #6d28d9);
+  opacity: 0.5;
+  animation: kakao-solo-radar-wave 4s cubic-bezier(0.18, 0.65, 0.25, 1) infinite;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.35);
+}
+
+.kakao-solo-ring--d1 {
+  animation-delay: 1.33s;
+}
+.kakao-solo-ring--d2 {
+  animation-delay: 2.66s;
+}
+
+@keyframes kakao-solo-radar-wave {
+  0% {
+    transform: scale(0.5);
+    opacity: 0.5;
+  }
+  55% {
+    opacity: 0.1;
+  }
+  100% {
+    transform: scale(2.85);
+    opacity: 0;
+  }
+}
+
+/* 뭉친 원(최소 ~30px) 대비 약 절반 직경 느낌 — 고유색 채움 + 흰 글자 */
+.kakao-solo-core {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  min-width: 20px;
+  min-height: 20px;
+  padding: 0 3px;
+  width: max-content;
+  max-width: 36px;
+  border-radius: 999px;
+  background: var(--solo-core, #6d28d9);
+  border: none;
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.45),
+    0 1px 4px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.22);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.kakao-solo-num {
+  font-size: 8.5px;
+  font-weight: 700;
+  line-height: 1;
+  color: #ffffff;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  text-align: center;
+  word-break: break-all;
+  text-shadow: 0 1px 1px rgba(0, 0, 0, 0.28);
+}
+
+/* 솔로만: 숫자 없이 작은 점 (클러스터 최소 원 ~48px 대비 약 절반) */
+.kakao-solo-core--dot {
+  min-width: 22px;
+  min-height: 22px;
+  width: 22px;
+  height: 22px;
+  max-width: 22px;
+  padding: 0;
+}
+
+/* 클러스터 원: 링·숫자를 같은 격자 셀에 겹쳐 숫자가 항상 정중앙 (absolute+block 흐름 섞이면 숫자가 밖으로 밀림) */
+.kakao-cluster-ui {
+  display: grid;
+  grid-template-columns: 1fr;
+  grid-template-rows: 1fr;
+  place-items: center;
+  justify-items: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  min-height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+  line-height: 0;
+  transform: translateZ(0);
+  --cluster-radar: #6d28d9;
+  --cluster-core: #6d28d9;
+}
+.kakao-cluster-rings {
+  grid-column: 1;
+  grid-row: 1;
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  pointer-events: none;
+}
+.kakao-cluster-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 42%;
+  height: 42%;
+  margin-left: -21%;
+  margin-top: -21%;
+  border-radius: 50%;
+  box-sizing: border-box;
+  border: 2px solid var(--cluster-radar, #6d28d9);
+  opacity: 0.45;
+  animation: kakao-solo-radar-wave 3.5s cubic-bezier(0.18, 0.65, 0.25, 1) infinite;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.3);
+}
+.kakao-cluster-ring--d1 {
+  animation-delay: 1.16s;
+}
+.kakao-cluster-ring--d2 {
+  animation-delay: 2.33s;
+}
+.kakao-cluster-num {
+  grid-column: 1;
+  grid-row: 1;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  font-weight: 700;
+  font-size: 13px;
+  line-height: 1;
+  color: #fff;
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+.kakao-cluster-num-inner {
+  display: block;
+  line-height: 1;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .kakao-solo-ring,
+  .kakao-cluster-ring {
+    animation: none !important;
+    opacity: 0.25;
+  }
+}
+
+/* 카카오 지도 말풍선: JS 문자열로 삽입되므로 Tailwind 유틸에 의존하지 않음 */
+.kakao-map-hover-tip {
+  transform: translateZ(0);
+  -webkit-overflow-scrolling: touch;
+  max-width: min(260px, calc(100vw - 32px));
+  width: auto;
+  border-radius: 0.5rem;
+  border: 1px solid #e5e7eb;
+  background: #fff;
+  color: #1f2937;
+  font-size: 12px;
+  line-height: 1.45;
+  padding: 0.5rem 0.75rem;
+  box-sizing: border-box;
+  box-shadow:
+    0 10px 15px -3px rgb(0 0 0 / 0.1),
+    0 4px 6px -4px rgb(0 0 0 / 0.1);
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
+/* 마커 좌표(가운데)에 붙지 않도록 위로 살짝 띄움 */
+.kakao-map-hover-tip--pin {
+  transform: translateY(-20px) translateZ(0);
+  pointer-events: auto;
+}
+.kmt-head {
+  font-weight: 700;
+  color: #111827;
+  line-height: 1.35;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.kmt-muted {
+  color: #9ca3af;
+  font-size: 11px;
+}
+.kmt-label {
+  margin-top: 0.35rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.kmt-addr {
+  margin-top: 0.25rem;
+  font-size: 12px;
+  font-weight: 500;
+  color: #1f2937;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.kmt-phone-wrap {
+  margin-top: 0.35rem;
+  font-size: 11px;
+  color: #1f2937;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  word-break: break-word;
+}
+.kmt-phone-lbl {
+  font-weight: 500;
+  color: #6b7280;
+}
+.kmt-phone-lines {
+  margin-top: 0.125rem;
+  font-variant-numeric: tabular-nums;
+}
+.kmt-sum {
+  margin-top: 0.25rem;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.kmt-sum-c {
+  color: #4f46e5;
+}
+.kmt-sum-p {
+  color: #dc2626;
+}
+.kmt-sum strong {
+  font-weight: 700;
+}
+.kmt-foot {
+  margin-top: 0.125rem;
+  font-size: 10px;
+  color: #9ca3af;
+}
+.kmt-cluster-tag {
+  margin-top: 0.35rem;
+  font-size: 11px;
+  font-weight: 600;
+  color: #6b7280;
+}
+.kmt-cluster-sum {
+  margin-top: 0.25rem;
+  font-weight: 700;
+  font-size: 12px;
+}
+.kmt-cluster-sum-c {
+  color: #4338ca;
+}
+.kmt-cluster-sum-p {
+  color: #b91c1c;
+}
+.kmt-tab {
+  font-variant-numeric: tabular-nums;
+}
+.kmt-sample {
+  margin-top: 0.125rem;
+  font-size: 11px;
+  color: #6b7280;
+  line-height: 1.35;
+}
+.kmt-warn {
+  margin-top: 0.125rem;
+  font-size: 11px;
+  color: #9ca3af;
+}
+.kmt-extra {
+  font-size: 11px;
+  font-weight: 400;
+  color: #6b7280;
+}
+
+.project-bid-waiting-blink {
+  animation: project-bid-waiting-blink 1.35s ease-in-out infinite;
+}
+
+.project-bid-waiting-message {
+  margin: 0 auto;
+  max-width: 18rem;
+  text-align: center;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.6;
+  word-break: keep-all;
+  overflow-wrap: anywhere;
+}
+
+@media (min-width: 640px) {
+  .project-bid-waiting-message {
+    max-width: none;
+    font-size: 14px;
+    line-height: 1.5;
+  }
+}
+
+@keyframes project-bid-waiting-blink {
+  0%,
+  100% {
+    opacity: 1;
+    filter: saturate(1);
+  }
+  50% {
+    opacity: 0.35;
+    filter: saturate(1.15);
+  }
+}
+
+.project-bid-ticker {
+  position: relative;
+  height: 1.8rem;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.project-bid-ticker-item {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  line-height: 1.35;
+  animation: project-bid-ticker-rise 2.3s ease-in-out;
+}
+
+.project-bid-ticker-text {
+  min-width: 0;
+  max-width: min(100%, 520px);
+  font-size: 11px;
+  font-weight: 600;
+  color: #6d28d9;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.project-bid-status-badge {
+  flex: none;
+  border-radius: 999px;
+  padding: 0.16rem 0.45rem;
+  font-size: 10px;
+  font-weight: 700;
+  line-height: 1;
+  border: 1px solid transparent;
+}
+
+.project-bid-status-badge--quoted {
+  color: #0369a1;
+  background: #e0f2fe;
+  border-color: #bae6fd;
+}
+
+.project-bid-status-badge--progress {
+  color: #92400e;
+  background: #fef3c7;
+  border-color: #fde68a;
+}
+
+.project-bid-status-badge--completed {
+  color: #166534;
+  background: #dcfce7;
+  border-color: #bbf7d0;
+}
+
+@keyframes project-bid-ticker-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(85%);
+  }
+  14%,
+  82% {
     opacity: 1;
     transform: translateY(0);
   }
-}
-
-@keyframes splash-fade-in {
-  0% {
+  100% {
     opacity: 0;
-  }
-  100% {
-    opacity: 1;
-  }
-}
-
-.splash-logo {
-  opacity: 0;
-}
-
-.splash-text {
-  opacity: 0;
-}
-
-.splash-bar {
-  opacity: 0;
-}
-
-@keyframes splash-progress {
-  0% {
-    transform: translateX(-100%);
-  }
-  100% {
-    transform: translateX(0);
+    transform: translateY(-85%);
   }
 }

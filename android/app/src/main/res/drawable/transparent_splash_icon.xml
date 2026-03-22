@@ -1,9 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- Android 12+ 스플래시: 흰색 원 = 배경과 동일해 아이콘 안 보임 -->
+<!-- Android 12+ 스플래시: 완전 투명 = 아이콘 안 보임 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <path android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" android:fillColor="#FFFFFF" />
+    <path android:pathData="M54,54m-54,0a54,54 0,1 1,108 0a54,54 0,1 1,-108 0" android:fillColor="#00000000" />
 </vector>

@@ -133,7 +133,13 @@ export default function LoginPage() {
 
       if (signInError) {
         console.error("로그인 오류:", signInError);
-        setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+        // 환경변수 누락 등: Invalid API key / fetch failed
+        const msg = signInError.message || "";
+        if (msg.includes("Invalid") || msg.includes("fetch") || msg.includes("Failed to fetch")) {
+          setError("서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.");
+        } else {
+          setError("이메일 또는 비밀번호가 올바르지 않습니다.");
+        }
         return;
       }
 

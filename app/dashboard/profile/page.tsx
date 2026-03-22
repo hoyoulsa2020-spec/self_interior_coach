@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import PushNotificationToggle from "@/app/components/PushNotificationToggle";
+import PushNotificationSettings from "@/app/components/PushNotificationSettings";
 
 type Profile = {
   user_id: string;
@@ -274,9 +274,11 @@ export default function ProfilePage() {
           </div>
 
           {/* 푸시 알림 */}
-          <div className="flex items-center gap-4 py-4">
+          <div className="flex min-w-0 flex-col gap-3 py-4 sm:flex-row sm:items-center sm:gap-4">
             <span className="w-24 shrink-0 text-xs font-medium text-gray-400">푸시 알림</span>
-            <PushNotificationToggle />
+            <div className="min-w-0 flex-1">
+              <PushNotificationSettings role="consumer" />
+            </div>
           </div>
         </div>
 

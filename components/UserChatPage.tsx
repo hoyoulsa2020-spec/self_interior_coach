@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import type { RealtimeChannel } from "@supabase/supabase-js";
 import { compressImage } from "@/lib/imageCompress";
@@ -30,9 +31,6 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
   const [pendingImages, setPendingImages] = useState<File[]>([]);
   const [lightbox, setLightbox] = useState<{ urls: string[]; index: number } | null>(null);
   const [alertMessage, setAlertMessage] = useState<string | null>(null);
-  const [showResetConfirm, setShowResetConfirm] = useState(false);
-  const [showEndedMessage, setShowEndedMessage] = useState(false);
-  const [resetting, setResetting] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const channelRef = useRef<RealtimeChannel | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -42,6 +40,15 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  /* 모바일 전체화면 채팅: body 스크롤 금지 */
+  useEffect(() => {
+    const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+    if (isMobile) {
+      document.body.classList.add("chat-open");
+      return () => document.body.classList.remove("chat-open");
+    }
+  }, []);
 
   const ensureThread = async () => {
     const { data: existing } = await supabase
@@ -88,42 +95,6 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
 
   const markUserRead = async (tid: string) => {
     await supabase.from("admin_chat_threads").update({ user_read_at: new Date().toISOString() }).eq("id", tid);
-  };
-
-  const handleResetChat = async () => {
-    if (!threadId || resetting) return;
-    setResetting(true);
-    const { count } = await supabase
-      .from("admin_chat_messages")
-      .select("id", { count: "exact", head: true })
-      .eq("thread_id", threadId);
-    const hasMessages = (count ?? 0) > 0;
-    if (!hasMessages) {
-      const { error: delError } = await supabase.from("admin_chat_threads").delete().eq("id", threadId);
-      setResetting(false);
-      setShowResetConfirm(false);
-      if (!delError) {
-        setThreadId(null);
-        setMessages([]);
-        await ensureThread();
-      } else {
-        setAlertMessage("채팅 종료에 실패했습니다.");
-      }
-      return;
-    }
-    const clearedAt = new Date().toISOString();
-    const { error } = await supabase
-      .from("admin_chat_threads")
-      .update({ ended_at: clearedAt, ended_by: "user", user_cleared_at: clearedAt })
-      .eq("id", threadId);
-    setResetting(false);
-    setShowResetConfirm(false);
-    if (!error) {
-      setMessages([]);
-      setShowEndedMessage(true);
-    } else {
-      setAlertMessage("채팅 종료에 실패했습니다.");
-    }
   };
 
   useEffect(() => {
@@ -210,18 +181,18 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
   };
 
   return (
-    <div className="flex h-[calc(100vh-8rem)] flex-col overflow-hidden rounded-xl border border-gray-200 bg-white">
-      <div className="flex shrink-0 items-center justify-between border-b border-gray-200 px-4 py-3">
-        <h2 className="text-base font-semibold text-gray-800">셀인코치</h2>
-        <button
-          type="button"
-          onClick={() => setShowResetConfirm(true)}
-          className="rounded-lg px-3 py-1.5 text-xs font-medium text-gray-500 transition hover:bg-gray-100"
-        >
-          채팅 종료
-        </button>
+    <div className="chat-fullpage-shell flex flex-col">
+      {/* Header: shrink-0, 항상 고정. 모바일: 뒤로가기 버튼 */}
+      <div className="chat-app-shell-header flex shrink-0 items-center justify-between gap-2 px-4 py-3">
+        <div className="flex min-w-0 flex-1 items-center gap-2">
+          <Link href={userRole === "consumer" ? "/dashboard" : "/provider/dashboard"} className="shrink-0 rounded-lg p-2 text-gray-500 transition hover:bg-gray-100 sm:hidden" aria-label="뒤로">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><polyline points="15 18 9 12 15 6" /></svg>
+          </Link>
+          <h2 className="min-w-0 truncate text-base font-semibold text-gray-800">셀인코치</h2>
+        </div>
       </div>
-      <div className="flex-1 overflow-y-auto p-4">
+      {/* MessageList: flex-1 min-height-0, 이 영역만 스크롤 */}
+      <div className="chat-app-shell-messages flex-1 min-h-0 overflow-y-auto p-4">
         {loading ? (
           <div className="flex justify-center py-8 text-sm text-gray-500">메시지 불러오는 중...</div>
         ) : messages.length === 0 ? (
@@ -259,7 +230,8 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
           </div>
         )}
       </div>
-      <div className="shrink-0 border-t border-gray-200 p-3">
+      {/* Composer: shrink-0, 하단 고정, safe-area 반영 */}
+      <div className="chat-app-shell-composer shrink-0 p-3">
         {pendingImages.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1">
             {pendingImages.map((f, i) => (
@@ -283,26 +255,6 @@ export default function UserChatPage({ userRole, userId }: UserChatPageProps) {
       </div>
       {lightbox && <ChatImageLightbox urls={lightbox.urls} index={lightbox.index} onClose={() => setLightbox(null)} />}
       {alertMessage && <AlertModal message={alertMessage} onClose={() => setAlertMessage(null)} variant="warning" />}
-      {showResetConfirm && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => setShowResetConfirm(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <h3 className="text-base font-bold text-gray-900">채팅 종료</h3>
-            <p className="mt-2 text-sm text-gray-600">채팅을 종료하시겠습니까? 종료하신 채팅 내용은 종료된 채팅 메뉴에 보관됩니다.</p>
-            <div className="mt-6 flex gap-2">
-              <button type="button" onClick={() => setShowResetConfirm(false)} className="flex-1 rounded-xl border border-gray-200 py-2.5 text-sm font-semibold text-gray-600 hover:bg-gray-50">취소</button>
-              <button type="button" onClick={handleResetChat} disabled={resetting} className="flex-1 rounded-xl bg-amber-600 py-2.5 text-sm font-semibold text-white hover:bg-amber-700 disabled:opacity-50">{resetting ? "처리 중..." : "종료"}</button>
-            </div>
-          </div>
-        </div>
-      )}
-      {showEndedMessage && (
-        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-black/50 px-4" onClick={() => setShowEndedMessage(false)}>
-          <div className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-2xl" onClick={(e) => e.stopPropagation()}>
-            <p className="text-center text-sm text-gray-700">종료하신 채팅 내용은 종료된 채팅 메뉴에 보관됩니다.</p>
-            <button type="button" onClick={() => setShowEndedMessage(false)} className="mt-4 w-full rounded-xl bg-indigo-600 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700">확인</button>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

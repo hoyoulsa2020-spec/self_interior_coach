@@ -90,11 +90,6 @@ export default function AdminPushPage() {
     fetchLogs();
   }, [page, pageSize]);
 
-  useEffect(() => {
-    const interval = setInterval(fetchLogs, 15000);
-    return () => clearInterval(interval);
-  }, [page, pageSize]);
-
   // 이름 검색 (디바운스)
   useEffect(() => {
     if (!nameQuery.trim()) {
@@ -210,8 +205,14 @@ export default function AdminPushPage() {
         <button
           type="button"
           onClick={fetchSubsCount}
-          className="mt-3 text-xs text-indigo-600 hover:underline"
+          className="mt-3 inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50"
         >
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 21h5v-5" />
+          </svg>
           구독자 수 새로고침
         </button>
       </div>
@@ -359,8 +360,19 @@ export default function AdminPushPage() {
                   <option value={20}>20개</option>
                   <option value={30}>30개</option>
                 </select>
-                <button type="button" onClick={fetchLogs} disabled={logsLoading} className="text-xs text-indigo-600 hover:underline disabled:opacity-50">
-                  새로고침
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); e.stopPropagation(); fetchLogs(); }}
+                  disabled={logsLoading}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-600 transition hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className={logsLoading ? "animate-spin" : ""}>
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                    <path d="M3 3v5h5" />
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                    <path d="M16 21h5v-5" />
+                  </svg>
+                  {logsLoading ? "불러오는 중..." : "새로고침"}
                 </button>
               </div>
               <div className="flex items-center gap-1">
@@ -385,12 +397,33 @@ export default function AdminPushPage() {
                 </button>
               </div>
             </div>
-            {logsLoading ? (
-              <div className="py-8 text-center text-sm text-gray-500">불러오는 중...</div>
-            ) : logs.length === 0 ? (
+            {logs.length === 0 && !logsLoading ? (
               <div className="py-8 text-center text-sm text-gray-500">발송 이력이 없습니다.</div>
+            ) : logs.length === 0 && logsLoading ? (
+              <div className="flex py-12 items-center justify-center gap-2 text-sm text-gray-500">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                  <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                  <path d="M3 3v5h5" />
+                  <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                  <path d="M16 21h5v-5" />
+                </svg>
+                불러오는 중...
+              </div>
             ) : (
-              <>
+              <div className="relative">
+                {logsLoading && (
+                  <div className="absolute inset-0 z-10 flex items-center justify-center rounded-lg bg-white/80 backdrop-blur-[1px]">
+                    <span className="inline-flex items-center gap-2 rounded-full bg-white px-4 py-2 text-sm font-medium text-gray-600 shadow-md">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="animate-spin">
+                        <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                        <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+                        <path d="M16 21h5v-5" />
+                      </svg>
+                      불러오는 중...
+                    </span>
+                  </div>
+                )}
                 {/* 모바일: 간략 카드 목록 */}
                 <div className="max-h-96 overflow-y-auto md:hidden">
                   <ul className="space-y-2">
@@ -486,7 +519,7 @@ export default function AdminPushPage() {
                     </tbody>
                   </table>
                 </div>
-              </>
+              </div>
             )}
           </div>
         )}
